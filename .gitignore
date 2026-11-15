@@ -1,0 +1,45 @@
+# Secrets, state, and logs never go into git.
+.env
+*.env
+!.env.example
+!vendor/pins.env
+!config/hermes.managed.env
+secrets/
+*.key
+*.pem
+*.token
+fleet.yaml
+!config/fleet.example.yaml
+/state/
+/logs/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+PAUSED
+budget.json
+outbox/
+briefs/
+backups/
+*.tar.gz
+
+# Python and Node
+.dspy-cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+*.egg-info/
+
+# Editor and OS
+.DS_Store
+*.swp
+
+# n8n runtime folders. data/ holds the SQLite database and the encrypted credentials.
+n8n/data/
+n8n/files/
+n8n/secrets.env

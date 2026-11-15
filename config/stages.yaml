@@ -1,0 +1,33 @@
+# Stage gates for each business project.
+#
+# The orchestrator may tune the numbers. It must log each change in the project's
+# STATE.md. A change to this file is a normal agent change. It goes through the merger.
+# A gate that is missed twice means the project pivots.
+
+schema_version: 1
+
+missed_gate_limit: 2
+
+stages:
+  discover:
+    candidates: 3
+    min_separate_complaints: 10
+    require_paid_workaround_proof: true
+  score:
+    rule: highest_total
+    criteria: [pain, proof_of_paying, free_channel_reach, buildable_in_two_weeks, competitor_gaps, legal_risk]
+    scale: [1, 5]
+  validate:
+    waitlist_signups: 20
+    written_yes_replies: 5            # Either target is enough.
+    window_days: 14
+  build_mvp:
+    stranger_value_minutes: 5
+    all_tests_pass: true
+  launch:
+    active_users: 10
+  first_customer:
+    payments: 1
+    needs: owner_payment_setup        # Until payments exist, the brief lists this under Limits.
+  iterate:
+    ticket_fix_hours: 72

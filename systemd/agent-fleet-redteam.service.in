@@ -1,0 +1,23 @@
+[Unit]
+Description=agent-fleet weekly red-team drill (plants known attacks and checks each defense)
+Documentation=file:///opt/agent-fleet/repo/docs/SECURITY.md
+After=agent-fleet-guard.service
+PartOf=agent-fleet.target
+
+[Service]
+Type=oneshot
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.redteam.drill
+TimeoutStartSec=900
+MemoryMax=512M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/agent-fleet-ops /var/lib/agent-fleet/status

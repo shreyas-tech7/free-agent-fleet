@@ -1,0 +1,30 @@
+name: orchestrator
+description: "Runs the business loop. Decides niche, product, price, and channels. Creates and links Kanban tasks. Checks stage gates and decides pivots."
+model: fleet-smart
+toolsets: [kanban, memory, skills, file, terminal]
+disabled_toolsets: [web, search, browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
+skills: [humanizer, house-style]
+mcp_servers:
+  fleet_tools:
+    tools: [ticket_list, ticket_update, approval_status]
+  n8n_tools:
+    tools: [notify_owner, request_approval, log_event]
+workspace:
+  repo: rw
+  state: [status, tickets, requests]
+rule_of_two:
+  untrusted_input: false
+  sensitive_access: false
+  external_actions: false
+max_turns: 40
+schedule:
+  - name: tick
+    cron: "17 */4 * * *"
+    monitor: tick.py
+    prompt: "Run the wake-up procedure from your SOUL.md. Follow the stage procedure for the active project."
+  - name: briefing-input
+    cron: "30 5 * * *"
+    prompt: "Update the brief block in STATE.md of the active project. Use only facts that you read. Commit on a branch and hand off."
+  - name: weekly-memo
+    cron: "0 8 * * 1"
+    prompt: "Write the weekly memo for the active project as described in your SOUL.md. Commit it on a branch and hand off."

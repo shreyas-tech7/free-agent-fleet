@@ -1,0 +1,213 @@
+{
+  "name": "fleet-tools",
+  "nodes": [
+    {
+      "id": "b9b409d9-6ae9-5929-bf39-1e45205bdb0f",
+      "name": "MCP Server",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "authentication": "bearerAuth",
+        "path": "fleet-tools"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-tools-token",
+          "name": "fleet-tools-token"
+        }
+      }
+    },
+    {
+      "id": "f0ba616d-d540-5cb4-aadb-b8702cdacaa0",
+      "name": "notify_owner",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        300,
+        -200
+      ],
+      "parameters": {
+        "toolDescription": "Send one short message to the owner. Use it only when something needs the owner. Plain words. 280 characters at most.",
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $fromAI('text', 'The message for the owner. Plain words. 280 characters at most.', 'string'), source: 'tool', severity: 'info' }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      }
+    },
+    {
+      "id": "bf9fd0f1-564d-5bb9-9b6e-c71d783e6cc5",
+      "name": "request_approval",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "toolDescription": "Ask the owner to approve one named item. The kind is spec, release, install, or public_sync. The owner decides. Do not wait. Read the answer later.",
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/approvals",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ kind: $fromAI('kind', 'One of: spec, release, install, public_sync', 'string'), ref: $fromAI('ref', 'A short reference such as a project slug or a commit', 'string'), summary: $fromAI('summary', 'One or two plain sentences that say what the owner approves', 'string'), requester: $fromAI('requester', 'Your agent name', 'string') }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      }
+    },
+    {
+      "id": "e8b49d9e-ece6-5c5b-92b4-18462e5ac735",
+      "name": "log_event",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        300,
+        200
+      ],
+      "parameters": {
+        "toolDescription": "Write one short note to the fleet log. The owner reads it in Slack. Use it for a result worth keeping, not for chat.",
+        "method": "POST",
+        "url": "http://127.0.0.1:5678/webhook/fleet-event",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'agent.note', severity: 'info', source: 'tool', title: $fromAI('title', 'A short title', 'string'), text: $fromAI('text', 'The note. Plain words. 500 characters at most.', 'string') }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "FLEET_CRED:fleet-event-token",
+          "name": "fleet-event-token"
+        }
+      }
+    },
+    {
+      "id": "cb2d7276-9520-5638-8ee5-cd5a6c0224a0",
+      "name": "fetch_feed",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        300,
+        400
+      ],
+      "parameters": {
+        "description": "Read an RSS or Atom feed from the allowed list and return the new items. Each item passed the injection screen. The allowed hosts are: hnrss.org, news.ycombinator.com, github.com, stackoverflow.com, dev.to, lobste.rs, blog.cloudflare.com, n8n.io.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "FLEET_WF:fleet-tool-fetch-feed",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $fromAI('url', 'The https address of the feed', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "notify_owner": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_approval": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log_event": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_feed": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": false,
+    "timezone": "America/Chicago",
+    "executionTimeout": 300,
+    "errorWorkflow": "FLEET_WF:fleet-error"
+  },
+  "meta": {
+    "generated_by": "scripts/gen_n8n.py. Do not edit this file by hand."
+  }
+}

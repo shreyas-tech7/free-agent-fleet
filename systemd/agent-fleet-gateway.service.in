@@ -1,0 +1,40 @@
+[Unit]
+Description=agent-fleet Hermes gateway (hosts the Kanban dispatcher and the cron jobs of all agents)
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=network-online.target user@@FLEET_UID@.service agent-fleet-router.service agent-fleet-guard.service
+Wants=network-online.target user@@FLEET_UID@.service
+PartOf=agent-fleet.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=fleet
+Group=fleet
+WorkingDirectory=/home/fleet
+Environment=HOME=/home/fleet
+Environment=PATH=/home/fleet/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+Environment=XDG_RUNTIME_DIR=/run/user/@FLEET_UID@
+Environment=DOCKER_HOST=unix:///run/user/@FLEET_UID@/docker.sock
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/@FLEET_UID@/bus
+ExecStartPre=@REPO@/ops/units/wait-docker @FLEET_UID@
+ExecStart=/home/fleet/.local/bin/hermes gateway run
+# Hermes exits with status 1 on SIGTERM. That is a normal stop, so it counts as success.
+# Restart=always still restarts after a crash. A stop by systemctl is never restarted.
+SuccessExitStatus=1
+Restart=always
+RestartSec=10
+TimeoutStopSec=90
+MemoryMax=@GATEWAY_MEMORY@
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=agent-fleet.target

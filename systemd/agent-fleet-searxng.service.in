@@ -1,0 +1,39 @@
+[Unit]
+Description=agent-fleet web search (SearXNG in rootless Docker)
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=network-online.target user@@FLEETOPS_UID@.service
+Wants=network-online.target user@@FLEETOPS_UID@.service
+PartOf=agent-fleet.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=fleetops
+Group=fleetops
+Environment=HOME=/home/fleetops
+Environment=XDG_RUNTIME_DIR=/run/user/@FLEETOPS_UID@
+Environment=DOCKER_HOST=unix:///run/user/@FLEETOPS_UID@/docker.sock
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStartPre=@REPO@/ops/units/wait-docker @FLEETOPS_UID@
+ExecStartPre=-/usr/bin/docker rm -f agent-fleet-searxng
+ExecStart=/usr/bin/docker run --rm --name agent-fleet-searxng \
+  --memory 512m --pids-limit 256 --cap-drop ALL --security-opt no-new-privileges \
+  --env-file /etc/agent-fleet/secrets/searxng.env \
+  -e SEARXNG_BASE_URL=http://127.0.0.1:@SEARXNG_PORT@/ \
+  -p 127.0.0.1:@SEARXNG_PORT@:8080 \
+  -v @REPO@/config/searxng/settings.yml:/etc/searxng/settings.yml:ro \
+  @SEARXNG_IMAGE@
+ExecStop=/usr/bin/docker stop -t 20 agent-fleet-searxng
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/searxng.env
+
+[Install]
+WantedBy=agent-fleet.target

@@ -1,0 +1,30 @@
+[Unit]
+Description=agent-fleet n8n Migration Report check (monthly, plain code, no model)
+Documentation=file:///opt/agent-fleet/repo/docs/N8N.md
+After=agent-fleet-n8n.service
+PartOf=agent-fleet.target
+
+[Service]
+# Root, on purpose. The report needs the owner login, and only root reads the owner password.
+Type=oneshot
+User=root
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.n8n.watch migration
+TimeoutStartSec=300
+MemoryMax=200M
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/agent-fleet-ops/events /var/lib/agent-fleet-ops/n8n
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes

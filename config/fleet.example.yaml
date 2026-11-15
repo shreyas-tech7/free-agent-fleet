@@ -1,0 +1,165 @@
+# agent-fleet live configuration. Example with placeholders only.
+#
+# The real file lives at /etc/agent-fleet/fleet.yaml. It is never in git.
+# `fleetctl setup` makes it. `fleetctl config set KEY VALUE` changes it.
+# This file holds no secrets. Secret values live in /etc/agent-fleet/secrets/.
+# Every key below is also the default. A real file only needs the keys it changes.
+
+schema_version: 1
+
+owner:
+  name: "Your Name"                  # Used only in the daily brief.
+  email: "owner@example.com"         # Receives the daily brief.
+  timezone: "America/Chicago"        # IANA zone name. The brief and cron jobs follow it.
+  telegram_user_ids: []              # Numeric IDs. The control bot obeys only these.
+  discord_user_ids: []               # Numeric IDs.
+  slack_user_ids: []                 # Member IDs, copied from the Slack profile. The control bot obeys only these.
+
+capacity:
+  tier: small                        # small, medium, or large. The installer sets it from RAM.
+  local_llm: false                   # true on medium and large. Needs the Ollama container.
+  ollama_model: "qwen3:1.7b"         # One small instruct model for classification.
+
+limits:
+  max_active_projects: 1
+  max_concurrent_workers: 1          # Maps to Hermes kanban.max_in_progress.
+  slowdown_percent: 80               # At this share of a daily free limit the fleet slows down.
+
+ports:                               # Every service listens on 127.0.0.1 only.
+  router: 20128
+  guard: 8099
+  publisher: 8098
+  deployer: 8097
+  control: 8096                      # Local notify endpoint. Briefing uses it to reach the owner.
+  searxng: 8888
+  reader: 8095                       # Page reader. Research agents read public pages through it.
+  n8n: 5678                          # n8n workflow engine. Loopback only. Its task runner uses the next port, 5679.
+
+router:
+  kind: omniroute                    # omniroute or litellm
+  base_url: "http://127.0.0.1:20128/v1"
+  approved_providers: []             # Providers whose data terms the owner read and accepted.
+  allow_noncommercial: false         # true lets trial-only providers (Cohere, NVIDIA) join. Set false before you take payments.
+  models: {}                         # Optional override of config/router/combos.yaml.
+
+guard:                               # Injection screen
+  threshold: 0.90                    # Score at or above this value blocks a whole text (a post, a message).
+  block_threshold: 0.98              # Model score that flags one block of a page. Higher, so one odd block does not condemn a page.
+  model_id: "protectai/deberta-v3-base-prompt-injection-v2"
+  max_chars: 20000                   # Longer text is split and each part is scanned.
+  force_rules_only: false            # true skips the model and uses rule-based checks.
+
+publisher:
+  mode: dry-run                      # dry-run writes to the outbox. live sends posts.
+  require_guard: true
+  platforms:
+    bluesky:
+      enabled: false
+      handle: ""                     # Example: yourbrand.bsky.social
+      max_chars: 300
+      rate: {per_hour: 2, per_day: 6}
+      label: {self_label: "bot"}     # Automated-account label.
+    mastodon:
+      enabled: false
+      instance_url: ""               # Example: https://mastodon.example
+      max_chars: 500
+      rate: {per_hour: 2, per_day: 6}
+      label: {set_bot_flag: true}    # Many instances require the bot flag.
+    discord:
+      enabled: false
+      channel_id: ""                 # Channel in the fleet's own server.
+      max_chars: 2000
+      rate: {per_hour: 4, per_day: 12}
+    telegram:
+      enabled: false
+      channel_id: ""                 # Example: @yourchannel
+      max_chars: 4000
+      rate: {per_hour: 4, per_day: 12}
+    devto:
+      enabled: false
+      max_chars: 100000
+      rate: {per_hour: 1, per_day: 2}
+    github:
+      enabled: false
+      repo: ""                       # Example: yourorg/yourproduct
+      max_chars: 60000
+      rate: {per_hour: 2, per_day: 6}
+    x:
+      enabled: false                 # Stays off until X API access exists.
+      max_chars: 280
+      rate: {per_hour: 1, per_day: 4}
+      label: {automated_label: "required"}
+    reddit:
+      enabled: false                 # Stays off until Reddit API access exists.
+      max_chars: 10000
+      rate: {per_hour: 1, per_day: 2}
+
+deployer:
+  mode: dry-run                      # dry-run logs the plan only. live deploys.
+  plan: free                         # Only the free plan is allowed.
+  allowed_products: [workers, pages, d1]
+
+reader:
+  user_agent: "agent-fleet-reader/0.1"   # Honest bot name. Add a contact URL after the owner picks one.
+  host_delay_seconds: 2.0                # Minimum time between two requests to one host.
+
+control:
+  poll_seconds: 3
+  telegram: {enabled: false}
+  discord:
+    enabled: false
+    channel_id: ""                   # Optional private channel. Direct messages always work.
+
+briefing:
+  time: "07:00"                      # In owner.timezone.
+  max_words: 150
+  email:
+    enabled: false
+    smtp_host: ""
+    smtp_port: 587
+    smtp_user: ""
+    from_address: ""
+  telegram: true
+  discord: true
+
+quota:
+  interval_minutes: 15
+  daily_free_limits:                 # Requests per day per provider. Verify each number in the provider terms.
+    openrouter: 200                  # Free models: 200 requests per day without credits.
+
+merger:
+  interval_minutes: 15
+  health_timeout_seconds: 120
+  skill_max_kb: 15
+
+backup:
+  keep: 14
+  github_remote: ""                  # Prompt 2 sets this. Example: git@github.com:yourorg/agent-fleet.git
+
+hermes:
+  version_tag: "v0.23.1"
+  sandbox_image: "nousresearch/hermes-sandbox:desktop"
+
+features:
+  ollama: false                      # Follows capacity.tier.
+  mock_llm: false                    # true makes the router use the mock model. For tests and the dry run only.
+
+n8n:
+  enabled: true                      # n8n does the work that needs no model: schedules, events, health checks, digests.
+  timezone: "America/Chicago"        # Schedules in n8n follow this zone.
+  memory: "1g"                       # Container memory limit. Size it for the machine.
+  watch_seconds: 60                  # How often the control bot asks n8n for /healthz.
+
+events:
+  relay: true                        # The relay sends fleet events to the n8n webhook fleet-event. It keeps them on disk while n8n is down.
+  webhook_path: "/webhook/fleet-event"
+  max_age_hours: 24                  # The relay drops an event that it could not send in this time.
+
+channels:
+  main: slack
+  backups: [telegram, discord]
+slack:
+  sink_mode: true                    # true writes each Slack message to the outbox and the log. Set false after the Slack tokens exist.
+  quiet_hours: {start: "22:00", end: "07:00"}   # In owner.timezone. Only critical alerts post live then.
+  channels: {}                       # Channel name to ID. `fleetctl slack bootstrap` fills it.
+

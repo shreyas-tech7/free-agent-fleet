@@ -1,0 +1,11 @@
+[Unit]
+Description=agent-fleet nightly backup
+PartOf=agent-fleet.target
+
+[Timer]
+OnCalendar=*-*-* 02:40:00
+Persistent=true
+Unit=agent-fleet-backup.service
+
+[Install]
+WantedBy=agent-fleet.target

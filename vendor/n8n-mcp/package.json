@@ -1,0 +1,12 @@
+{
+  "name": "agent-fleet-n8n-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pins n8n-mcp for Claude Code. Fleet agents never use it.",
+  "dependencies": {
+    "n8n-mcp": "2.102.0"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.32.2"
+  }
+}

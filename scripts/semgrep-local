@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# semgrep-local: run the gate's semgrep on the code files that changed since the live copy, before you open a merge.
+# Gate G2 scans each changed code file at severity ERROR. This runs the same scan in the same image with no network.
+# Usage: scripts/semgrep-local [REF]     REF defaults to the live copy HEAD (origin of the deploy)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+# The live copy has merge commits that this clone lacks. Fetch it as a reference, so the diff shows what the gate will see.
+git fetch -q /opt/agent-fleet/repo main:refs/remotes/live/main 2>/dev/null || true
+ref="${1:-refs/remotes/live/main}"
+work=/var/tmp/p3-semgrep
+mkdir -p "$work/src"
+# changed or new code files, from the working tree
+files=$( { git diff --name-only "$ref" -- ; git ls-files --others --exclude-standard; } | sort -u | grep -E '\.(py|js|mjs|cjs|ts|tsx|jsx|sh|bash)$' || true)
+[ -n "$files" ] || { echo "semgrep-local: no changed code files"; exit 0; }
+for f in $files; do [ -f "$f" ] || continue; mkdir -p "$work/src/$(dirname "$f")"; cp "$f" "$work/src/$f"; done
+chmod -R a+rX "$work"
+tag=$(cut -d' ' -f1 /opt/agent-fleet/gate-image)
+args=()
+for f in $files; do [ -f "$f" ] && args+=("/src/$f"); done
+out=$(mktemp)
+scripts/slog "run the gate semgrep on changed files before a merge (no network)" -u fleetops env DOCKER_HOST=unix:///run/user/1002/docker.sock XDG_RUNTIME_DIR=/run/user/1002 \
+  docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,size=256m -e HOME=/tmp -e SEMGREP_SEND_METRICS=off \
+  -v "$work/src":/src:ro -v /opt/agent-fleet/vendor/semgrep-rules:/rules:ro "$tag" \
+  semgrep scan --config /rules --metrics=off --disable-version-check --severity ERROR --quiet --json --timeout 30 "${args[@]}" > "$out" 2>/dev/null || true
+python3 - "$out" <<'PY'
+import json, sys
+raw = open(sys.argv[1]).read()
+try:
+    data = json.loads(raw[raw.index("{"):])
+except ValueError:
+    print("semgrep-local: no result. Is the gate image present?"); sys.exit(2)
+res = data.get("results", [])
+for r in res:
+    print("%s:%d  %s" % (r["path"].replace("/src/", ""), r["start"]["line"], r["check_id"].split(".")[-1]))
+print("semgrep-local: %d finding(s) in %d file(s)" % (len(res), len(data.get("paths", {}).get("scanned", []))))
+sys.exit(1 if res else 0)
+PY

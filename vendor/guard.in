@@ -1,0 +1,4 @@
+# Direct dependencies of the injection screen. The lock file adds hashes for every package.
+onnxruntime==1.31.1
+tokenizers==0.23.3
+numpy==2.5.4

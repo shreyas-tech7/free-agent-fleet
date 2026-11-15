@@ -1,0 +1,31 @@
+[Unit]
+Description=agent-fleet board exporter (reads the Kanban boards and writes the snapshot that the Slack #board mirror reads)
+Documentation=file:///opt/agent-fleet/repo/docs/SLACK.md
+After=agent-fleet-gateway.service
+PartOf=agent-fleet.target
+
+[Service]
+Type=simple
+User=fleet
+Group=fleet
+WorkingDirectory=@REPO@
+Environment=HOME=/home/fleet
+Environment=PATH=/home/fleet/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m ops.board.export --loop
+Restart=on-failure
+RestartSec=30
+MemoryMax=150M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=agent-fleet.target

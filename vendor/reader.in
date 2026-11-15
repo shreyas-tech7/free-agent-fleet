@@ -1,0 +1,4 @@
+# Direct dependencies of the page reader. The lock file adds hashes for every package.
+# Crawl4AI only turns HTML into Markdown here. The reader does its own safe fetching.
+# Its stealth and fake user agent features are never used (rule R2).
+crawl4ai==0.9.5

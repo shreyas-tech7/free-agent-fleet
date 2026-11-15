@@ -1,0 +1,22 @@
+#!/usr/bin/python3 -I
+"""fleetctl launcher.
+
+Installed at /usr/local/bin/fleetctl (root, mode 755). It runs the code of the live copy at
+/opt/agent-fleet/repo. In a development clone it runs the code of that clone.
+The -I flag in the first line makes Python ignore PYTHONPATH, the user site folder, and the
+current folder. Only the folder chosen below goes on the import path.
+"""
+import os
+import sys
+
+sys.dont_write_bytecode = True        # a root process must not write __pycache__ folders into the locked tree. See D-063.
+
+_here = os.path.dirname(os.path.realpath(__file__))
+_live = "/opt/agent-fleet/repo"
+_root = _here if os.path.isdir(os.path.join(_here, "ops", "fleetctl")) else _live
+sys.path.insert(0, _root)
+
+from ops.fleetctl.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

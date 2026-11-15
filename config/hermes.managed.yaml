@@ -1,0 +1,94 @@
+# Hermes managed config template. Root owns the installed copy at /etc/hermes/config.yaml.
+# The installer fills in the pinned sandbox image from vendor/pins.env.
+# Hermes managed scope pins each key below. Users and agents cannot override these keys.
+# The pin works through file permissions. See docs/SECURITY.md for the limits.
+#
+# Locked core: agents cannot change this file (merger gate G3).
+
+# Dangerous commands: a model judges risk. Cron and one-shot runs deny what they cannot ask about.
+approvals:
+  mode: smart
+  cron_mode: deny
+  single_query_mode: deny
+  unattended_mode: deny
+  deny:
+    - 'sudo *'
+    - 'su *'
+    - 'doas *'
+    - 'docker *'
+    - 'podman *'
+    - 'nsenter *'
+    - 'systemctl *'
+    - 'crontab *'
+    - 'ssh *'
+    - 'scp *'
+    - 'nc *'
+    - 'ncat *'
+    - 'socat *'
+    - '*curl*| sh*'
+    - '*curl*| bash*'
+    - '*wget*| sh*'
+    - '*wget*| bash*'
+    - '*| sudo*'
+    - 'git push --force*'
+    - 'git push -f*'
+    - 'git push*origin main*'
+    - 'chmod -R 777*'
+    - '*/var/lib/agent-fleet/PAUSED*'
+    - '*/etc/agent-fleet*'
+    - '*/etc/hermes*'
+    - '*/opt/agent-fleet*'
+    - '*.claude/*'
+    - '*.hermes/.env*'
+
+# Agent shell commands run in a rootless Docker container. No host secrets go in.
+terminal:
+  backend: docker
+  docker_image: "@@HERMES_SANDBOX_IMAGE@@"
+  docker_forward_env: []
+  env_passthrough: []
+  docker_extra_args: []
+
+security:
+  redact_secrets: true
+
+# The only model endpoint is the local router. No OAuth or subscription provider.
+providers:
+  fleet-router:
+    api: "http://127.0.0.1:20128/v1"
+    key_env: ROUTER_KEY_HERMES
+    discover_models: false
+    models:
+      - fleet-smart
+      - fleet-worker
+      - fleet-coder
+      - fleet-local
+
+model:
+  provider: fleet-router
+  base_url: "http://127.0.0.1:20128/v1"
+
+# Updates go through the merger. No passive update checks.
+updates:
+  check: false
+
+# Agents cannot change skills on their own. Skill changes go through branches and gates.
+skills:
+  write_approval: true
+
+# Keyless web search rings would send queries to third parties. SearXNG is the backend.
+web:
+  search_backend: searxng
+  keyless_fallback: false
+  keyless_rescue: false
+
+# The pause hook blocks every tool call and every model turn while the PAUSED flag exists.
+hooks_auto_accept: true
+hooks:
+  pre_tool_call:
+    - command: /opt/agent-fleet/repo/core/killswitch/hermes-paused-hook.sh
+      timeout: 5
+      fail_closed: true
+  pre_llm_call:
+    - command: /opt/agent-fleet/repo/core/killswitch/hermes-paused-hook.sh
+      timeout: 5

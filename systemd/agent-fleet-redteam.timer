@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet weekly red-team drill
+PartOf=agent-fleet.target
+
+[Timer]
+OnCalendar=Sat 02:00
+Persistent=true
+RandomizedDelaySec=10min
+Unit=agent-fleet-redteam.service
+
+[Install]
+WantedBy=agent-fleet.target

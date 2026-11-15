@@ -1,0 +1,299 @@
+{
+  "name": "fleet-tool-fetch-feed",
+  "nodes": [
+    {
+      "id": "0f652f59-e7ba-549f-8358-5e0d89f204ad",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "url",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e2b1af8c-2515-57d1-bb0d-015957ac7c6e",
+      "name": "Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const ALLOWED = [\"hnrss.org\", \"news.ycombinator.com\", \"github.com\", \"stackoverflow.com\", \"dev.to\", \"lobste.rs\", \"blog.cloudflare.com\", \"n8n.io\"];\n// The n8n Code sandbox has no URL class (checked on n8n 2.47.4, D-054). So the address is read by hand, with strict rules.\nconst raw = String($input.first().json.url || '').trim();\nconst parts = /^([A-Za-z][A-Za-z0-9+.-]*):\\/\\/([^\\/?#]*)([^#]*)(#.*)?$/.exec(raw);\nif (!parts || /[^\\x21-\\x7e]/.test(raw) || raw.indexOf('\\\\') !== -1) {\n  return [{ json: { ok: false, error: 'The address is not valid.' } }];\n}\nconst authority = parts[2];\nif (parts[1].toLowerCase() !== 'https' || authority.indexOf('@') !== -1 || authority.indexOf(':') !== -1 || raw.length > 300) {\n  return [{ json: { ok: false, error: 'Use a plain https address with no port and no login.' } }];\n}\nconst host = authority.toLowerCase();\nif (!host || ALLOWED.indexOf(host) === -1) {\n  return [{ json: { ok: false, error: 'This host is not on the allowed list: ' + ALLOWED.join(', ') } }];\n}\nlet rest = parts[3];\nif (rest === '' || rest.charAt(0) === '?') rest = '/' + rest;\nreturn [{ json: { ok: true, url: 'https://' + host + rest } }];\n"
+      }
+    },
+    {
+      "id": "ecd5d198-c60c-5f29-9b6a-b78d90041c43",
+      "name": "Allowed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d9295f2f-da76-5db6-b4b7-c2c3cdc4be20",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "af1b3cdd-a5d2-5c14-aacd-d256ea532a01",
+      "name": "Fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        680,
+        -80
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": false
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "6e37eb6c-90f7-5544-83d3-5abcd64adb42",
+      "name": "Parse XML",
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        900,
+        -80
+      ],
+      "parameters": {
+        "mode": "xmlToJson",
+        "dataPropertyName": "data",
+        "options": {
+          "explicitArray": false,
+          "mergeAttrs": true
+        }
+      }
+    },
+    {
+      "id": "5745e931-4d15-5863-94b1-3b40b712a782",
+      "name": "Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -80
+      ],
+      "parameters": {
+        "jsCode": "const root = $input.first().json;\nconst arr = (x) => x === undefined || x === null ? [] : (Array.isArray(x) ? x : [x]);\nconst text = (x) => (typeof x === 'string' ? x : (x && (x._ || x['#text'])) || '');\nconst clean = (s, n) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, n);\nconst link = (l) => { const a = arr(l)[0]; return typeof a === 'string' ? a : (a && a.href) || ''; };\nlet items = [];\nif (root.rss && root.rss.channel) {\n  items = arr(root.rss.channel.item).map(i => ({ id: text(i.guid) || text(i.link), title: text(i.title), link: text(i.link), published: text(i.pubDate), summary: text(i.description) }));\n} else if (root.feed) {\n  items = arr(root.feed.entry).map(e => ({ id: text(e.id) || link(e.link), title: text(e.title), link: link(e.link), published: text(e.updated) || text(e.published), summary: text(e.summary) || text(e.content) }));\n}\nconst data = $getWorkflowStaticData('global');\ndata.seen = data.seen || {};\nconst host = String($('Validate').first().json.url).split('/')[2];       // the Validate node made it: https://host/path\nconst seen = new Set(data.seen[host] || []);\nconst fresh = [];\nfor (const i of items.slice(0, 30)) {\n  const id = String(i.id || i.link || '').slice(0, 200);\n  if (!id || seen.has(id)) continue;\n  seen.add(id);\n  fresh.push({ id, title: clean(i.title, 200), link: String(i.link || '').slice(0, 300), published: String(i.published || '').slice(0, 40), summary: clean(i.summary, 300) });\n}\ndata.seen[host] = Array.from(seen).slice(-300);\nreturn fresh.slice(0, 20).map(i => ({ json: i }));\n"
+      }
+    },
+    {
+      "id": "f7bf96c0-dc5f-50bb-878b-7b43effd8b00",
+      "name": "Screen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1340,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8099/scan",
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: (($json.title || '') + '\\n' + ($json.summary || '')).slice(0, 2000) }) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "87dcf9e5-f6c6-52d2-bd8e-27d40a309306",
+      "name": "Filter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        -80
+      ],
+      "parameters": {
+        "jsCode": "// An item goes on only when the injection screen says SAFE. No answer counts as not safe.\nconst items = $('Items').all();\nconst scans = $input.all();\nconst clean = [];\nlet blocked = 0;\nlet unscreened = 0;\nscans.forEach((s, i) => {\n  const label = s.json && s.json.label;\n  if (label === 'SAFE') clean.push(items[i].json);\n  else if (label) blocked++;\n  else unscreened++;\n});\nreturn [{ json: { ok: true, items: clean, blocked, unscreened, total: items.length } }];\n"
+      }
+    },
+    {
+      "id": "af13f645-b097-5ac1-8b62-703aed5d8088",
+      "name": "Refuse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        120
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, error: $input.first().json.error || 'The feed was not read.' } }];\n"
+      }
+    },
+    {
+      "id": "f7f2245d-cdc2-5172-a0c8-550116ba0d32",
+      "name": "Fetch Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        120
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, error: 'The feed could not be read.' } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Allowed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Allowed": {
+      "main": [
+        [
+          {
+            "node": "Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch": {
+      "main": [
+        [
+          {
+            "node": "Parse XML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse XML": {
+      "main": [
+        [
+          {
+            "node": "Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Items": {
+      "main": [
+        [
+          {
+            "node": "Screen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screen": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": false,
+    "timezone": "America/Chicago",
+    "executionTimeout": 300,
+    "errorWorkflow": "FLEET_WF:fleet-error"
+  },
+  "meta": {
+    "generated_by": "scripts/gen_n8n.py. Do not edit this file by hand."
+  }
+}

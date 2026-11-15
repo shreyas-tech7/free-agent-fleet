@@ -1,0 +1,8 @@
+[Unit]
+Description=agent-fleet: every service of the fleet
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=network-online.target
+Wants=network-online.target
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+name: research
+description: "Finds real customer pains through official APIs and public pages. Scores candidates. Scouts for tools once a week. Never installs anything."
+model: fleet-worker
+toolsets: [web, memory, skills, file, terminal]
+disabled_toolsets: [browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
+skills: [humanizer, customer-research, house-style]
+mcp_servers:
+  fleet_tools:
+    tools: [source_search, web_read, guard_scan]
+  n8n_tools:
+    tools: [log_event, fetch_feed]
+workspace:
+  repo: rw
+  state: [status]
+rule_of_two:
+  untrusted_input: true
+  sensitive_access: false
+  external_actions: false
+max_turns: 60
+schedule:
+  - name: scout-tools
+    cron: "0 10 * * 0"
+    prompt: "Do the weekly scouting from your SOUL.md. File skill requests for good finds. Never install anything."

@@ -1,0 +1,101 @@
+# Model router combos. The router is OmniRoute. LiteLLM is the fallback with the same names.
+#
+# A combo is an ordered list of provider/model targets. The router tries them in order.
+# Rules (policy tests enforce them):
+#   - Only API-key providers with a free plan that needs no card (rules R1, R2, R3, R4).
+#   - No subscription provider. No OAuth. No stealth. No proxy. No provider marked `tos: avoid`.
+#   - A provider joins a combo only after the owner approves it in `router.approved_providers`.
+#     The owner reads the data terms of the provider first (rule 10 of core/RULES.md).
+#   - OpenRouter models must end in :free.
+#   - A provider with commercial_use: false (trial keys) appears only in a dev_only combo.
+#     Only fleet-dev is dev_only. It is for tests. No fleet client key can call it. See D-031.
+#
+# The apply step checks each target against what the provider offers. It keeps the order and
+# drops targets that do not exist. Model names change. Run `fleetctl router apply` after keys change.
+
+schema_version: 1
+
+providers:
+  groq:
+    router_id: groq
+    secrets: [GROQ_API_KEY]
+    plan: free
+    terms: "https://groq.com/privacy-policy"
+  cloudflare-ai:
+    router_id: cloudflare-ai
+    secrets: [CLOUDFLARE_AI_API_TOKEN, CLOUDFLARE_ACCOUNT_ID]
+    plan: free
+    terms: "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+  gemini:
+    router_id: gemini
+    secrets: [GEMINI_API_KEY]
+    plan: free
+    terms: "https://ai.google.dev/gemini-api/terms"
+  nvidia:
+    router_id: nvidia
+    secrets: [NVIDIA_API_KEY]
+    plan: free
+    commercial_use: false          # Trial terms: evaluation and prototyping only. See D-029.
+    terms: "https://www.nvidia.com/en-us/agreements/trial-service/"
+  cohere:
+    router_id: cohere
+    secrets: [COHERE_API_KEY]
+    plan: free
+    commercial_use: false          # Trial key terms: no production or commercial use. See D-029.
+    terms: "https://cohere.com/terms-of-use"
+  openrouter:
+    router_id: openrouter
+    secrets: [OPENROUTER_API_KEY]
+    plan: free
+    terms: "https://openrouter.ai/privacy"
+
+combos:
+# Free OpenRouter models change often. `fleetctl router apply` checks each openrouter target against the public
+# OpenRouter model list and drops a name that is gone. Large context first: an agent turn needs 14,000 tokens or more.
+# No Groq target sits in an agent combo. The Groq free plan allows 8,000 tokens a minute, so a call of an agent answers 413.
+# The router passes that 413 on, and Hermes reads it as a conversation that is too large. A 429 from OpenRouter is a short wait instead.
+# See D-064. Groq stays connected for small calls.
+# Some free models may log prompts or train on them. Send no customer data to a free model. See docs/PROVIDERS.md.
+  fleet-smart:        # orchestrator, improver, final scores. Strongest reasoning first.
+    strategy: priority
+    targets:
+      - gemini/gemini-2.5-pro
+      - openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      - openrouter/google/gemma-4-31b-it:free
+      - cloudflare-ai/@cf/openai/gpt-oss-120b
+      - openrouter/nvidia/nemotron-3.5-lightning:free
+      - openrouter/inclusionai/ling-3.2-flash:free
+  fleet-worker:       # research, marketing, feedback, security. Fast and good enough.
+    strategy: priority
+    targets:
+      - gemini/gemini-2.5-flash
+      - openrouter/nvidia/nemotron-3.5-lightning:free
+      - openrouter/inclusionai/ling-3.2-flash:free
+      - openrouter/google/gemma-4-26b-a4b-it:free
+      - cloudflare-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+  fleet-coder:        # build agent. Coding models first.
+    strategy: priority
+    targets:
+      - gemini/gemini-2.5-flash
+      - openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      - cloudflare-ai/@cf/qwen/qwen2.5-coder-32b-instruct
+      - openrouter/cohere/north-mini-code:free
+      - openrouter/google/gemma-4-31b-it:free
+      - openrouter/nvidia/nemotron-3.5-lightning:free
+      - openrouter/inclusionai/ling-3.2-flash:free
+  fleet-dev:          # TESTS ONLY. Trial keys that forbid business use. No fleet client key can call it.
+    strategy: priority
+    dev_only: true
+    targets:
+      - nvidia/nvidia/nemotron-3-ultra-550b-a55b
+      - nvidia/google/gemma-4-31b-it
+      - nvidia/nvidia/nemotron-3.5-lightning-30b-a3b
+      - nvidia/poolside/laguna-xs-2.1
+      - cohere/command-a-03-2025
+      - cohere/command-r-plus-08-2024
+      - cohere/command-r-08-2024
+  fleet-local:        # classification on this machine. Small tier has no local model.
+    strategy: priority
+    local_only: true  # never falls back to a cloud model, so local data stays local
+    targets:
+      - ollama/qwen3:1.7b

@@ -1,0 +1,9 @@
+{
+  "name": "fleet-playwright-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pinned install of the official Playwright MCP server (https://github.com/microsoft/playwright-mcp) for the build agent.",
+  "dependencies": {
+    "@playwright/mcp": "0.0.83"
+  }
+}

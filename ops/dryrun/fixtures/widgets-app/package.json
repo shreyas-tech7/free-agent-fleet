@@ -1,0 +1,7 @@
+{
+  "name": "dry-run-widgets",
+  "private": true,
+  "type": "module",
+  "description": "Sample product for the dry run. It is never deployed.",
+  "scripts": { "test": "node --test" }
+}

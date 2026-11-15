@@ -1,0 +1,40 @@
+[Unit]
+Description=agent-fleet Deployer (the only part that holds the Cloudflare token)
+Documentation=file:///opt/agent-fleet/repo/docs/SECURITY.md
+After=network-online.target agent-fleet-guard.service
+Wants=network-online.target
+PartOf=agent-fleet.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.deployer.server
+Restart=on-failure
+RestartSec=5
+MemoryMax=300M
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/agent-fleet-ops/deployer
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/deployer.env
+
+[Install]
+WantedBy=agent-fleet.target

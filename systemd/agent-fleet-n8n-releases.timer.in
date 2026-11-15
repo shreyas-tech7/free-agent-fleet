@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet n8n weekly release and advisory check
+PartOf=agent-fleet.target
+
+[Timer]
+OnCalendar=Mon *-*-* 09:20:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=agent-fleet-n8n-releases.service
+
+[Install]
+WantedBy=agent-fleet.target

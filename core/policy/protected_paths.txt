@@ -1,0 +1,44 @@
+# Paths that an agent branch must not change (merger gate G3).
+# One pattern per line. A pattern ending in / matches everything under that folder.
+# Other patterns use shell-style wildcards. Lines that start with # are comments.
+#
+# Why these paths:
+#   core/                           the locked core: rules, policy tests, kill switch
+#   config/hermes.managed.yaml      the Hermes managed config
+#   config/secrets.yaml             says which service reads which secret
+#   agents/*/agent.yaml             tools, models, and the Rule of Two flags of each agent
+#   ops/                            all plain code. The merger runs as root. The control bot holds the kill switch.
+#                                   The Publisher and the Deployer hold the keys. See docs/DECISIONS.md (D-016).
+#   tests/, conftest.py, pytest.ini the fleet tests. An agent must not weaken the tests that judge it.
+#   MCP config files                an agent cannot add an MCP server. The owner approves each one.
+#   fleetctl, install.sh, install/  these run as root
+#   systemd/                        unit files run as root or hold the kill switch
+#   vendor/pins.env                 pinned versions of installed software
+core/
+config/hermes.managed.yaml
+config/hermes.managed.env
+config/secrets.yaml
+agents/*/agent.yaml
+ops/
+fleetctl
+install.sh
+install/
+systemd/
+scripts/
+vendor/
+.githooks/
+.gitleaks.toml
+.gitignore
+.gitattributes
+conftest.py
+pytest.ini
+NOTICE
+tests/
+**/conftest.py
+**/sitecustomize.py
+**/usercustomize.py
+**/*.pth
+**/.mcp.json
+**/mcp.json
+**/mcp_*.json
+agents/*/monitor/*

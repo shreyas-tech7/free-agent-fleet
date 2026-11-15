@@ -1,0 +1,53 @@
+# Reviewed OSV-Scanner findings. See docs/UPGRADES.md and D-051.
+# Each entry has a reason and an expiry date. After the date the finding fails the scan again, so it must be reviewed.
+# These packages run only inside the gate container. That container has no network, no secrets, and runs as the user nobody.
+
+[[IgnoredVulns]]
+id = "GHSA-7hp6-4w63-5g45"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "litellm 1.93.2 is a library of the Cisco mcp-scanner. The scanner runs its YARA analyzer only. The upgrade to litellm 1.100.4 or newer is queued. Never use 1.107.0."
+
+[[IgnoredVulns]]
+id = "GHSA-g5ff-637f-6q2m"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "Same package and same reason as GHSA-7hp6-4w63-5g45. Fixed in litellm 1.95.0."
+
+[[IgnoredVulns]]
+id = "GHSA-5h93-6whr-6q8j"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "mcp 1.29.0 is a dependency of semgrep. The gate container runs semgrep in a scan mode that starts no MCP server and has no network. Fixed in mcp 1.30.0. Wait for a semgrep release that allows it."
+
+[[IgnoredVulns]]
+id = "GHSA-84m7-p3x7-pcfv"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "Same package and same reason as GHSA-5h93-6whr-6q8j."
+
+[[IgnoredVulns]]
+id = "GHSA-rwrf-2pqf-9j8j"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "Same package and same reason as GHSA-5h93-6whr-6q8j."
+
+[[IgnoredVulns]]
+id = "GHSA-w4fh-qvv9-3v23"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "Same package and same reason as GHSA-5h93-6whr-6q8j."
+
+[[IgnoredVulns]]
+id = "GHSA-mf5v-w3w3-f6cg"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "opentelemetry-api 1.37.0 is a dependency of semgrep. The gate container has no network and exports no telemetry. Fixed in 1.45.2."
+
+[[IgnoredVulns]]
+id = "GHSA-xcq7-p3pf-p88h"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "Same package and same reason as GHSA-mf5v-w3w3-f6cg. Fixed in 1.45.1."
+
+[[IgnoredVulns]]
+id = "GHSA-w8v5-vhqr-4h9v"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "diskcache 5.6.3 is a dependency of the self-evolution tool. It reads and writes only a cache folder that the tool owns. No fixed version exists yet. Watch for one."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2447"
+ignoreUntil = 2026-12-15T00:00:00Z
+reason = "Same advisory as GHSA-w8v5-vhqr-4h9v under another name."

@@ -1,0 +1,30 @@
+[Unit]
+Description=agent-fleet merger (gates, merge, deploy, health check, rollback)
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=network-online.target agent-fleet-gateway.service user@@FLEETOPS_UID@.service
+Wants=network-online.target user@@FLEETOPS_UID@.service
+PartOf=agent-fleet.target
+
+[Service]
+# Root, on purpose. The merger owns the locked core and deploys to /opt/agent-fleet.
+# It never runs agent code as root. The gates run in a throwaway rootless container as fleetops.
+Type=oneshot
+User=root
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.merger.main
+TimeoutStartSec=3600
+MemoryMax=1G
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/agent-fleet /var/lib/agent-fleet /var/lib/agent-fleet-merger /var/lib/agent-fleet-ops/merger /home/fleet/.hermes /etc/agent-fleet/secrets
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes

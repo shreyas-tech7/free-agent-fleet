@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet weekly portfolio log (Sunday 18:00 in the owner's time zone)
+PartOf=agent-fleet.target
+
+[Timer]
+# The zone comes from the live config (owner.timezone). A restart over Sunday does not make a late entry.
+OnCalendar=@PORTFOLIO_CALENDAR@
+Persistent=false
+Unit=agent-fleet-portfolio.service
+
+[Install]
+WantedBy=agent-fleet.target

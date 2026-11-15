@@ -1,0 +1,18 @@
+# gitleaks settings for agent-fleet.
+# The default rules stay on. The allowlist below covers only the fake values that tests use.
+# A fake value must start with one of these prefixes. A real secret never does.
+title = "agent-fleet gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake values in tests, and the pin files that hold public SHA-256 hashes."
+paths = [
+  '''^vendor/(pins\.env|LOCK\.md|guard-requirements\.txt)$''',
+]
+regexes = [
+  '''pw-test-[A-Za-z0-9\-]+''',
+  '''sk-fake-[A-Za-z0-9]+''',
+  '''mock-local-key-[0-9a-f]+''',
+]

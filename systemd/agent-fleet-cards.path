@@ -1,0 +1,11 @@
+[Unit]
+Description=agent-fleet card requests from n8n (a file in cards-in starts the ingester)
+Documentation=file:///opt/agent-fleet/repo/docs/N8N.md
+PartOf=agent-fleet.target
+
+[Path]
+PathExistsGlob=/var/lib/agent-fleet/cards-in/c-*.json
+Unit=agent-fleet-cards.service
+
+[Install]
+WantedBy=agent-fleet.target

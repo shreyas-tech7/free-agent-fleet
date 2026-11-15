@@ -1,0 +1,10 @@
+[Unit]
+Description=agent-fleet brief on request (the control bot writes the NOW file)
+PartOf=agent-fleet.target
+
+[Path]
+PathExists=/var/lib/agent-fleet-ops/briefing/NOW
+Unit=agent-fleet-briefing.service
+
+[Install]
+WantedBy=agent-fleet.target

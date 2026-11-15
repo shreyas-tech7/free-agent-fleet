@@ -1,0 +1,35 @@
+[Unit]
+Description=agent-fleet control bot (the kill switch, outside agent-fleet.target)
+Documentation=file:///opt/agent-fleet/repo/docs/RUNBOOK.md
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+# No PartOf and no agent-fleet.target. The command /stop must not stop this unit.
+
+[Service]
+Type=simple
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.control.main
+Restart=always
+RestartSec=5
+MemoryMax=200M
+# This unit leaves out NoNewPrivileges and CapabilityBoundingSet on purpose.
+# The bot calls sudo for the four kill switch commands. Sudo needs the setuid bit.
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/control.env
+
+[Install]
+WantedBy=multi-user.target

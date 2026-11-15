@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Agents may commit only on branches named agent/<agent>/<topic>.
+# This hook is a guide. The merger enforces the rule: it looks only at agent/* branches.
+branch=$(git symbolic-ref --short -q HEAD || echo "")
+if ! printf '%s' "$branch" | grep -Eq '^agent/[a-z0-9_-]+/[a-z0-9._/-]+$'; then
+  echo "pre-commit: commit only on a branch named agent/<agent>/<topic>. You are on '${branch:-detached HEAD}'." >&2
+  echo "Run: git switch -c agent/<agent>/<topic> origin/main" >&2
+  exit 1
+fi

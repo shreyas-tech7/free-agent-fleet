@@ -1,0 +1,34 @@
+[Unit]
+Description=agent-fleet n8n nightly backup (workflows, encrypted credentials, a safe database copy)
+Documentation=file:///opt/agent-fleet/repo/docs/N8N.md
+After=agent-fleet-n8n.service
+PartOf=agent-fleet.target
+
+[Service]
+Type=oneshot
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HOME=/home/fleetops
+Environment=XDG_RUNTIME_DIR=/run/user/@FLEETOPS_UID@
+Environment=DOCKER_HOST=unix:///run/user/@FLEETOPS_UID@/docker.sock
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 -m ops.n8n.backup
+TimeoutStartSec=900
+MemoryMax=300M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/agent-fleet-ops /run/user/@FLEETOPS_UID@
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+# The backup needs the encryption key only to write a short fingerprint of it. It reads it through its own file.
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/n8n.env

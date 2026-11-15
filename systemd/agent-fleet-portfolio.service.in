@@ -1,0 +1,34 @@
+[Unit]
+Description=agent-fleet weekly portfolio log
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=network-online.target agent-fleet-router.service
+Wants=network-online.target
+PartOf=agent-fleet.target
+
+[Service]
+Type=oneshot
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.briefing.weekly
+TimeoutStartSec=300
+MemoryMax=200M
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/agent-fleet/briefs /var/lib/agent-fleet-ops/briefing /var/lib/agent-fleet-ops/logs /var/lib/agent-fleet-ops/events /var/lib/agent-fleet-ops/portfolio
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/briefing.env

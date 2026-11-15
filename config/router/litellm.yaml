@@ -1,0 +1,111 @@
+# Generated from config/router/combos.yaml by ops/router/litellm_gen.py. Do not edit by hand.
+# LiteLLM is the fallback router. It uses the same virtual model names as OmniRoute.
+# Run it only if OmniRoute does not work: litellm --config config/router/litellm.yaml --host 127.0.0.1 --port 20128
+# Cloudflare targets need CLOUDFLARE_ACCOUNT_ID in the environment as well as the token.
+model_list:
+- model_name: fleet-smart
+  litellm_params:
+    model: gemini/gemini-2.5-pro
+    api_key: os.environ/GEMINI_API_KEY
+    order: 1
+- model_name: fleet-smart
+  litellm_params:
+    model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 2
+- model_name: fleet-smart
+  litellm_params:
+    model: openrouter/google/gemma-4-31b-it:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 3
+- model_name: fleet-smart
+  litellm_params:
+    model: cloudflare/@cf/openai/gpt-oss-120b
+    api_key: os.environ/CLOUDFLARE_AI_API_TOKEN
+    order: 4
+- model_name: fleet-smart
+  litellm_params:
+    model: openrouter/nvidia/nemotron-3.5-lightning:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 5
+- model_name: fleet-smart
+  litellm_params:
+    model: openrouter/inclusionai/ling-3.2-flash:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 6
+- model_name: fleet-worker
+  litellm_params:
+    model: gemini/gemini-2.5-flash
+    api_key: os.environ/GEMINI_API_KEY
+    order: 1
+- model_name: fleet-worker
+  litellm_params:
+    model: openrouter/nvidia/nemotron-3.5-lightning:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 2
+- model_name: fleet-worker
+  litellm_params:
+    model: openrouter/inclusionai/ling-3.2-flash:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 3
+- model_name: fleet-worker
+  litellm_params:
+    model: openrouter/google/gemma-4-26b-a4b-it:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 4
+- model_name: fleet-worker
+  litellm_params:
+    model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+    api_key: os.environ/CLOUDFLARE_AI_API_TOKEN
+    order: 5
+- model_name: fleet-coder
+  litellm_params:
+    model: gemini/gemini-2.5-flash
+    api_key: os.environ/GEMINI_API_KEY
+    order: 1
+- model_name: fleet-coder
+  litellm_params:
+    model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 2
+- model_name: fleet-coder
+  litellm_params:
+    model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
+    api_key: os.environ/CLOUDFLARE_AI_API_TOKEN
+    order: 3
+- model_name: fleet-coder
+  litellm_params:
+    model: openrouter/cohere/north-mini-code:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 4
+- model_name: fleet-coder
+  litellm_params:
+    model: openrouter/google/gemma-4-31b-it:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 5
+- model_name: fleet-coder
+  litellm_params:
+    model: openrouter/nvidia/nemotron-3.5-lightning:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 6
+- model_name: fleet-coder
+  litellm_params:
+    model: openrouter/inclusionai/ling-3.2-flash:free
+    api_key: os.environ/OPENROUTER_API_KEY
+    order: 7
+- model_name: fleet-local
+  litellm_params:
+    model: ollama/qwen3:1.7b
+    api_base: http://127.0.0.1:11434
+    order: 1
+litellm_settings:
+  telemetry: false
+  drop_params: true
+  num_retries: 1
+  request_timeout: 120
+router_settings:
+  routing_strategy: simple-shuffle
+  enable_pre_call_checks: true
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  disable_spend_logs: true

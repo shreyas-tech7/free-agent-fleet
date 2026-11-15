@@ -1,0 +1,20 @@
+# Domains that the page reader never fetches. One domain per line. A domain also blocks its subdomains.
+# Reason: these sites forbid automated access in their terms, need a login, or have an official API
+# that the research agent must use instead. Agents cannot change this file (merger gate G3).
+facebook.com
+instagram.com
+linkedin.com
+twitter.com
+x.com
+tiktok.com
+reddit.com
+pinterest.com
+whatsapp.com
+web.telegram.org
+discord.com
+discordapp.com
+accounts.google.com
+mail.google.com
+docs.google.com
+drive.google.com
+web.archive.org

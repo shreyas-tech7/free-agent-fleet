@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet quota tracker every 15 minutes
+PartOf=agent-fleet.target
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=30s
+Unit=agent-fleet-quota.service
+
+[Install]
+WantedBy=agent-fleet.target

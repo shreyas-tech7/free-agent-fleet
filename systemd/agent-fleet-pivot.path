@@ -1,0 +1,10 @@
+[Unit]
+Description=agent-fleet pivot request from the orchestrator
+PartOf=agent-fleet.target
+
+[Path]
+PathExists=/var/lib/agent-fleet/requests/pivot.json
+Unit=agent-fleet-pivot.service
+
+[Install]
+WantedBy=agent-fleet.target

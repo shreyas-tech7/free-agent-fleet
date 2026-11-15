@@ -1,0 +1,86 @@
+# n8n for agent-fleet. It does the work that needs no model: schedules, event fan-out, health checks,
+# digests, backups, and integrations. A run of n8n costs zero model tokens.
+#
+# On the fleet machine, systemd runs this file: agent-fleet-n8n.service, as the user fleetops, in rootless Docker.
+# The compose project folder is /var/lib/agent-fleet-ops/n8n. It holds .env, data/, and files/.
+# By hand from a clone: copy .env.example to .env, fill it in, then run `docker compose up -d` in this folder.
+#
+# Network. The container shares the network of the machine, so n8n can reach the other fleet services on
+# 127.0.0.1. In rootless Docker the machine network is the real one (checked on this setup). Two settings keep
+# n8n private: n8n listens on 127.0.0.1 only, and it publishes no ports. ufw blocks every other inbound port.
+# Owner access is an SSH tunnel or `tailscale serve`. Never `tailscale funnel`. See docs/N8N.md.
+#
+# User. In rootless Docker the container root is the unprivileged user that runs the daemon (fleetops).
+# So files in data/ belong to fleetops on the host, and the nightly backup can read them.
+
+name: agent-fleet-n8n
+
+services:
+  n8n:
+    image: ${N8N_IMAGE:?set N8N_IMAGE in .env}
+    container_name: agent-fleet-n8n
+    restart: "no"                      # systemd restarts it
+    network_mode: host
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${N8N_MEMORY:-1g}
+    memswap_limit: ${N8N_MEMORY_SWAP:-1536m}
+    pids_limit: 512
+    tmpfs:
+      - /tmp:rw,size=128m
+      - /home/node/.cache:rw,size=128m   # n8n builds its static pages here at each start
+    env_file:
+      - ${N8N_SECRETS_FILE:-./secrets.env}     # N8N_ENCRYPTION_KEY and the owner password hash. Mode 600. Never in git.
+    environment:
+      HOME: /home/node
+      N8N_USER_FOLDER: /home/node
+      NODE_OPTIONS: --max-old-space-size=640
+      # Network. n8n listens on loopback only.
+      N8N_LISTEN_ADDRESS: 127.0.0.1
+      N8N_PORT: "5678"
+      N8N_RUNNERS_BROKER_PORT: "5679"
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      N8N_PROXY_HOPS: ${N8N_PROXY_HOPS:-0}
+      # Time.
+      GENERIC_TIMEZONE: ${N8N_TIMEZONE:-America/Chicago}
+      TZ: ${N8N_TIMEZONE:-America/Chicago}
+      # No data leaves the machine for telemetry, notices, or templates.
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_HIRING_BANNER_ENABLED: "false"
+      # Small machine. Keep seven days of runs. Run five jobs at most at one time.
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: "5"
+      N8N_PAYLOAD_SIZE_MAX: "4"
+      DB_SQLITE_VACUUM_ON_STARTUP: "true"
+      # n8n 2.x secure defaults, set again here so a later image cannot loosen them without a diff.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      NODES_EXCLUDE: '["n8n-nodes-base.executeCommand","n8n-nodes-base.localFileTrigger"]'
+      N8N_RESTRICT_FILE_ACCESS_TO: /home/node/files
+      N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: "true"
+      N8N_RUNNERS_MODE: internal
+      # The owner is made from the environment. No person clicks through a setup page.
+      N8N_INSTANCE_OWNER_MANAGED_BY_ENV: "true"
+      N8N_INSTANCE_OWNER_EMAIL: ${N8N_OWNER_EMAIL:?set N8N_OWNER_EMAIL in .env}
+      N8N_INSTANCE_OWNER_FIRST_NAME: ${N8N_OWNER_FIRST_NAME:-Owner}
+      N8N_INSTANCE_OWNER_LAST_NAME: ${N8N_OWNER_LAST_NAME:-Account}
+      # Instance-level MCP is on, and no workflow is exposed to it yet.
+      N8N_MCP_MANAGED_BY_ENV: "true"
+      N8N_MCP_ACCESS_ENABLED: "true"
+      N8N_LOG_LEVEL: info
+    volumes:
+      - ./data:/home/node/.n8n
+      - ./files:/home/node/files
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s

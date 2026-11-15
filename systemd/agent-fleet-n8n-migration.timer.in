@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet n8n monthly Migration Report check
+PartOf=agent-fleet.target
+
+[Timer]
+OnCalendar=*-*-01 09:40:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=agent-fleet-n8n-migration.service
+
+[Install]
+WantedBy=agent-fleet.target

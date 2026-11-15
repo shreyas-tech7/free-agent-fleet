@@ -1,0 +1,302 @@
+{
+  "name": "health-watch",
+  "nodes": [
+    {
+      "id": "6f33272f-c351-5c2b-91ce-060a1c70e74d",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9621f34f-f721-5edf-827f-a1d2d51eaba5",
+      "name": "Targets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const targets = [\n  { name: 'guard', url: 'http://127.0.0.1:8099/health' },\n  { name: 'reader', url: 'http://127.0.0.1:8095/health' },\n  { name: 'publisher', url: 'http://127.0.0.1:8098/health' },\n  { name: 'deployer', url: 'http://127.0.0.1:8097/health' },\n  { name: 'control', url: 'http://127.0.0.1:8096/health' },\n  { name: 'router', url: 'http://127.0.0.1:20128/api/health' },\n  { name: 'searxng', url: 'http://127.0.0.1:8888/healthz' }\n];\nreturn targets.map(t => ({ json: t }));\n"
+      }
+    },
+    {
+      "id": "fd7171c6-e5db-5b31-859e-06a37b84a172",
+      "name": "Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "a153e9d3-084d-59bd-a797-48aaec7b281e",
+      "name": "Fleet Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:8096/v1/status",
+        "options": {
+          "timeout": 8000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "id": "bef69969-5d79-505c-b321-3e3312f44dd2",
+      "name": "Evaluate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const data = $getWorkflowStaticData('global');\ndata.fail = data.fail || {};\ndata.alerted = data.alerted || {};\nconst targets = $('Targets').all();\nconst checks = $('Check').all();\nconst status = $('Fleet Status').first().json || {};\nconst results = checks.map((c, i) => {\n  const code = Number(c.json.statusCode || 0);\n  return { name: targets[i].json.name, ok: !c.json.error && code >= 200 && code < 300, code };\n});\n// Units without an HTTP health path: the control bot reports their state.\nconst services = status.services || {};\nfor (const unit of ['gateway', 'events']) {\n  if (unit in services) results.push({ name: unit, ok: services[unit] === 'active', code: 0 });\n}\nif (!status.services) results.push({ name: 'control-api', ok: false, code: 0 });\nconst events = [];\nfor (const r of results) {\n  if (r.ok) {\n    if (data.alerted[r.name]) {\n      events.push({ type: 'health.recovered', severity: 'info', source: 'health-watch', title: r.name + ' is back', text: r.name + ' answers again.' });\n    }\n    data.fail[r.name] = 0;\n    data.alerted[r.name] = false;\n  } else {\n    data.fail[r.name] = (data.fail[r.name] || 0) + 1;\n    if (data.fail[r.name] >= 2 && !data.alerted[r.name]) {\n      data.alerted[r.name] = true;\n      events.push({ type: 'alert.health', severity: 'critical', source: 'health-watch', title: r.name + ' is down',\n                    text: r.name + ' failed 2 checks in a row' + (r.code ? ' (status ' + r.code + ')' : '') + '.', fields: { service: r.name } });\n    }\n  }\n}\nreturn events.map(e => ({ json: e }));\n"
+      }
+    },
+    {
+      "id": "80a684d5-c4f8-57c5-8438-26b5d09dce22",
+      "name": "Send Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5678/webhook/fleet-event",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "FLEET_CRED:fleet-event-token",
+          "name": "fleet-event-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "a18e04ab-e482-528c-9ca4-ef7e5435c9b4",
+      "name": "Heartbeat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { checked: new Date().toISOString(), workflow: 'health-watch' } }];\n"
+      }
+    },
+    {
+      "id": "976dac90-9a8e-5909-ae84-192d7de33f01",
+      "name": "To File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "operation": "toJson",
+        "mode": "once",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "health-watch.json"
+        }
+      }
+    },
+    {
+      "id": "65be83f8-ed8a-5c94-a154-021d195531cc",
+      "name": "Write Heartbeat",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/node/files/heartbeat/health-watch.json",
+        "dataPropertyName": "data",
+        "options": {}
+      }
+    },
+    {
+      "id": "fe895a40-f89e-5982-a395-0d6e169bda26",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Targets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Targets": {
+      "main": [
+        [
+          {
+            "node": "Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check": {
+      "main": [
+        [
+          {
+            "node": "Fleet Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fleet Status": {
+      "main": [
+        [
+          {
+            "node": "Evaluate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate": {
+      "main": [
+        [
+          {
+            "node": "Send Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Heartbeat": {
+      "main": [
+        [
+          {
+            "node": "To File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To File": {
+      "main": [
+        [
+          {
+            "node": "Write Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "timezone": "America/Chicago",
+    "executionTimeout": 300,
+    "errorWorkflow": "FLEET_WF:fleet-error"
+  },
+  "meta": {
+    "generated_by": "scripts/gen_n8n.py. Do not edit this file by hand."
+  }
+}

@@ -1,0 +1,2 @@
+# Gate image: semgrep (open-source engine). It needs mcp 1.x, so it has its own venv.
+semgrep==1.185.0

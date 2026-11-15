@@ -1,0 +1,36 @@
+[Unit]
+Description=agent-fleet n8n (workflow engine in rootless Docker. It uses no model tokens)
+Documentation=file:///opt/agent-fleet/repo/docs/N8N.md
+After=network-online.target user@@FLEETOPS_UID@.service
+Wants=network-online.target user@@FLEETOPS_UID@.service
+PartOf=agent-fleet.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=fleetops
+Group=fleetops
+Environment=HOME=/home/fleetops
+Environment=XDG_RUNTIME_DIR=/run/user/@FLEETOPS_UID@
+Environment=DOCKER_HOST=unix:///run/user/@FLEETOPS_UID@/docker.sock
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+Environment=N8N_SECRETS_FILE=/etc/agent-fleet/secrets/n8n.env
+WorkingDirectory=/var/lib/agent-fleet-ops/n8n
+ExecStartPre=@REPO@/ops/units/wait-docker @FLEETOPS_UID@
+ExecStartPre=-/usr/bin/docker rm -f agent-fleet-n8n
+ExecStart=/usr/bin/docker compose --project-directory /var/lib/agent-fleet-ops/n8n -f @REPO@/n8n/docker-compose.yml up --abort-on-container-exit --no-log-prefix
+ExecStop=/usr/bin/docker compose --project-directory /var/lib/agent-fleet-ops/n8n -f @REPO@/n8n/docker-compose.yml stop -t 40
+Restart=on-failure
+RestartSec=15
+TimeoutStartSec=300
+TimeoutStopSec=90
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/n8n.env
+
+[Install]
+WantedBy=agent-fleet.target

@@ -1,0 +1,30 @@
+name: improver
+description: "Reviews the week's failures. Uses the weekly GEPA run. Opens small safe changes to prompts and skills on branches. Never edits core."
+model: fleet-smart
+toolsets: [terminal, file, memory, skills]
+disabled_toolsets: [web, search, browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
+skills: [humanizer, systematic-debugging, writing-plans, house-style]
+mcp_servers:
+  fleet_tools:
+    tools: [ticket_list, guard_scan]
+  n8n_tools:
+    tools: [request_approval, log_event]
+workspace:
+  repo: rw
+  state: [status]
+rule_of_two:
+  untrusted_input: true
+  sensitive_access: false
+  external_actions: false
+max_turns: 60
+schedule:
+  - name: weekly-review
+    cron: "0 4 * * 0"
+    monitor: week.py
+    prompt: "Do the weekly review as described in your SOUL.md. Open at most three small changes on branches."
+  - name: weekly-traces
+    cron: "0 23 * * 6"
+    script: traces_job.py
+  - name: weekly-gepa
+    cron: "0 2 * * 0"
+    script: gepa_job.py

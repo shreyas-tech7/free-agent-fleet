@@ -1,0 +1,25 @@
+name: feedback
+description: "Reads the quarantined inbox. Writes short tickets. Answers only from the approved FAQ. Never passes raw text on."
+model: fleet-worker
+toolsets: [memory, skills]
+disabled_toolsets: [web, search, browser, file, terminal, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
+skills: [humanizer, house-style]
+mcp_servers:
+  fleet_tools:
+    tools: [inbox_list, inbox_read, inbox_ack, ticket_submit, faq_list, reply_faq, guard_scan]
+    env_from_profile: [PUBLISHER_REPLY_TOKEN]
+  n8n_tools:
+    tools: [log_event]
+workspace:
+  repo: none
+  state: []
+rule_of_two:
+  untrusted_input: true
+  sensitive_access: false
+  external_actions: true
+max_turns: 40
+schedule:
+  - name: inbox-triage
+    cron: "7 */2 * * *"
+    monitor: inbox.py
+    prompt: "Triage the inbox as described in your SOUL.md."

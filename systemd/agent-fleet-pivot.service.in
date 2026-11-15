@@ -1,0 +1,28 @@
+[Unit]
+Description=agent-fleet pivot (archive the active project and its board, start a new project at Discover)
+Documentation=file:///opt/agent-fleet/repo/docs/RUNBOOK.md
+After=agent-fleet-gateway.service user@@FLEET_UID@.service
+Wants=user@@FLEET_UID@.service
+
+[Service]
+# Root, on purpose. It moves folders in the root-owned live repository and commits there.
+# It reads one small request file that the orchestrator wrote. It checks every field. It never runs agent code.
+Type=oneshot
+User=root
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/local/bin/fleetctl pivot --from-request
+TimeoutStartSec=300
+MemoryMax=512M
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/agent-fleet /var/lib/agent-fleet /home/fleet/.hermes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes

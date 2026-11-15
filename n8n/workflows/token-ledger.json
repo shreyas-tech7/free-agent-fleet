@@ -1,0 +1,325 @@
+{
+  "name": "token-ledger",
+  "nodes": [
+    {
+      "id": "45abbb97-42a7-599b-a368-82d43694aa50",
+      "name": "Every Night",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "50 23 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "73f981c0-e531-57ff-8fac-236b50db9a24",
+      "name": "Budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://127.0.0.1:8096/v1/budget",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "649e8acc-a303-5b3c-9bc5-b23304169f60",
+      "name": "Ledger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b = $input.first().json;\nconst date = b.date || new Date().toISOString().slice(0, 10);\nconst providers = b.providers || {};\nconst rows = Object.keys(providers).sort().map(k => {\n  const p = providers[k] || {};\n  return { date, key: k, requests: Number(p.requests_today || 0), tokens: Number(p.tokens_today || 0),\n           limit: p.limit === null || p.limit === undefined ? '' : Number(p.limit), percent: p.percent === null || p.percent === undefined ? '' : Number(p.percent) };\n});\nconst hot = rows.filter(r => r.percent !== '' && r.percent >= 80);\nconst lines = rows.map(r => r.key + ': ' + r.requests + ' requests' + (r.limit !== '' ? ' of ' + r.limit + ' (' + r.percent + '%)' : ''));\nreturn [{ json: {\n  rows, csvRows: rows, hotCount: hot.length,\n  table: ('Token ledger ' + date + '\\n' + (lines.join('\\n') || 'No usage recorded.')).slice(0, 900),\n  alertText: hot.map(r => r.key + ' is at ' + r.percent + '% of its free daily limit').join('. ')\n} }];\n"
+      }
+    },
+    {
+      "id": "704c49e1-fe88-5f03-ac04-73e471693029",
+      "name": "Rows",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -120
+      ],
+      "parameters": {
+        "fieldToSplitOut": "csvRows",
+        "options": {}
+      }
+    },
+    {
+      "id": "32f1b68a-7cae-5983-b3d4-d7fe4df915e8",
+      "name": "To CSV",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -120
+      ],
+      "parameters": {
+        "operation": "csv",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "ledger.csv"
+        }
+      }
+    },
+    {
+      "id": "a30a869e-9c31-5070-9636-6b8b2ffc3621",
+      "name": "Write CSV",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        -120
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/files/ledger/{{ $now.toFormat('yyyy-LL-dd') }}.csv",
+        "dataPropertyName": "data",
+        "options": {}
+      }
+    },
+    {
+      "id": "98eb35a5-2017-56f9-b954-ce4fee614339",
+      "name": "Send Table",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5678/webhook/fleet-event",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'ledger.daily', severity: 'info', source: 'token-ledger', title: 'Token ledger', text: $json.table }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "FLEET_CRED:fleet-event-token",
+          "name": "fleet-event-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "8aac111e-1ed8-5127-a70c-f566d77bd766",
+      "name": "Hot",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2f5daf54-8d6e-5d90-bebc-71d50b191642",
+              "leftValue": "={{ $json.hotCount > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "986f4f0d-f235-5ca3-a54a-0e8a24405edf",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5678/webhook/fleet-event",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'alert.quota', severity: 'warn', source: 'token-ledger', title: 'A free limit is near', text: $json.alertText }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "FLEET_CRED:fleet-event-token",
+          "name": "fleet-event-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "96fab9d1-49d6-5bba-9c72-562a129e50e8",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    }
+  ],
+  "connections": {
+    "Every Night": {
+      "main": [
+        [
+          {
+            "node": "Budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Budget": {
+      "main": [
+        [
+          {
+            "node": "Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ledger": {
+      "main": [
+        [
+          {
+            "node": "Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows": {
+      "main": [
+        [
+          {
+            "node": "To CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To CSV": {
+      "main": [
+        [
+          {
+            "node": "Write CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hot": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": false,
+    "timezone": "America/Chicago",
+    "executionTimeout": 300,
+    "errorWorkflow": "FLEET_WF:fleet-error"
+  },
+  "meta": {
+    "generated_by": "scripts/gen_n8n.py. Do not edit this file by hand."
+  }
+}

@@ -1,0 +1,21 @@
+name: marketing
+description: "Builds the studio brand kit, writes landing copy, articles, and launch kits. Posts only through the Publisher."
+model: fleet-worker
+toolsets: [web, memory, skills, file, terminal]
+disabled_toolsets: [browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
+skills: [humanizer, product-marketing, copywriting, copy-editing, launch, content-strategy, seo-audit, programmatic-seo, schema, social, community-marketing, marketing-ideas, free-tools, cro, pricing, customer-research, house-style]
+mcp_servers:
+  fleet_tools:
+    tools: [publish_post, web_read, guard_scan, source_search]
+    env_from_profile: [PUBLISHER_API_TOKEN]
+  n8n_tools:
+    tools: [request_approval, log_event]
+workspace:
+  repo: rw
+  state: [status]
+rule_of_two:
+  untrusted_input: true
+  sensitive_access: false
+  external_actions: true
+max_turns: 60
+schedule: []

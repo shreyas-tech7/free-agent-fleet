@@ -1,0 +1,22 @@
+# Test combo. It exists in the router only while `features.mock_llm` is true.
+#
+# The mock model is tests/mock_llm.py. It is an OpenAI compatible server that returns canned, schema valid answers.
+# It costs nothing and calls no outside service. The dry run and the tests use it.
+#
+# The router runs in a rootless container, so it cannot reach 127.0.0.1 of the machine. Run the mock in a container on
+# the same container network as the router, and give it the name that base_url uses. `fleetctl config set features.mock_llm true`
+# then `fleetctl router apply` makes the node and the combo. Turn the feature off to remove both.
+schema_version: 1
+
+provider:
+  name: fleet-mock
+  prefix: mock
+  api_type: chat
+  base_url: "http://fleet-mock:20129/v1"
+  api_key: "mock-key-not-secret"        # the mock ignores it. The router needs some value.
+
+combo:
+  name: fleet-test
+  strategy: priority
+  targets:
+    - mock/fleet-mock

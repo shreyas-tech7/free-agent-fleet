@@ -1,0 +1,16 @@
+# Copy this file to config/owner.yaml, change the values, and run: fleetctl owner apply
+# The private copy is never exported. Keep real names and addresses out of the public repository.
+owner:
+  name: Your Name
+  email: you@example.com
+  timezone: America/Chicago        # any name from the IANA time zone list
+brief:
+  time: "07:00"
+  max_words: 150
+  channels: [slack, telegram, discord, email]
+quiet_hours:
+  start: "22:00"
+  end: "07:00"
+channels:
+  main: slack                      # slack, telegram, discord, or email
+  backups: [telegram, discord]

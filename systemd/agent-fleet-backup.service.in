@@ -1,0 +1,34 @@
+[Unit]
+Description=agent-fleet nightly backup (no secrets)
+Documentation=file:///opt/agent-fleet/repo/docs/RUNBOOK.md
+After=network-online.target agent-fleet-export.service
+PartOf=agent-fleet.target
+
+[Service]
+Type=oneshot
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 -m ops.backup.main
+TimeoutStartSec=900
+MemoryMax=400M
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/agent-fleet-ops
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/backup.env

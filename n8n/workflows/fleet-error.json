@@ -1,0 +1,252 @@
+{
+  "name": "fleet-error",
+  "nodes": [
+    {
+      "id": "b85b5d56-7b29-584b-bd43-034ac8bb6dae",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f24e7b45-5f48-51af-a9df-ed2d9d146ad6",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst wf = (e.workflow && e.workflow.name) || 'an unknown workflow';\nconst node = (e.execution && e.execution.lastNodeExecuted) || '';\nconst msg = String((e.execution && e.execution.error && e.execution.error.message) || 'no message').replace(/\\s+/g, ' ').slice(0, 200);\nconst id = (e.execution && e.execution.id) || '';\nconst text = ('n8n workflow failed: ' + wf + (node ? ' at ' + node : '') + '. ' + msg + (id ? ' (run ' + id + ')' : '')).slice(0, 600);\nreturn [{ json: { text, run: String(id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) } }];\n"
+      }
+    },
+    {
+      "id": "7788764b-b7d8-5f24-9203-498f43718972",
+      "name": "Alert Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/slack/post",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'alerts', text: ':warning: ' + $json.text, severity: 'warn' }) }}"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "431618b9-fbf2-5a64-9ef6-b4bdaf0f2c8b",
+      "name": "Alert Owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/notify",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text, severity: 'warn' }) }}"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "604c47ed-3906-5de1-b97c-487d315ecf85",
+      "name": "Unsent Slack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -40
+      ],
+      "parameters": {
+        "jsCode": "// This alert could not be sent. The control bot is down or does not accept the token. Leave one small file.\n// The control bot reads the folder and sends the text when it can. The file name has only safe characters.\nconst f = $('Format').first().json;\nconst run = f.run || String(Date.now());\nreturn [{ json: { file: 'alert-' + run + '-slack.json', channel: 'slack', text: String(f.text || '').slice(0, 600), at: new Date().toISOString() } }];\n"
+      }
+    },
+    {
+      "id": "5f3fc888-2449-53c0-b298-605e3183ba6e",
+      "name": "Unsent Owner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        120
+      ],
+      "parameters": {
+        "jsCode": "// This alert could not be sent. The control bot is down or does not accept the token. Leave one small file.\n// The control bot reads the folder and sends the text when it can. The file name has only safe characters.\nconst f = $('Format').first().json;\nconst run = f.run || String(Date.now());\nreturn [{ json: { file: 'alert-' + run + '-owner.json', channel: 'owner', text: String(f.text || '').slice(0, 600), at: new Date().toISOString() } }];\n"
+      }
+    },
+    {
+      "id": "7998dcce-20f9-5162-a153-05850f96fc61",
+      "name": "Unsent To File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        40
+      ],
+      "parameters": {
+        "operation": "toJson",
+        "mode": "each",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "={{ $json.file }}"
+        }
+      }
+    },
+    {
+      "id": "44125f7b-5b2d-55b1-b55c-349739755f3c",
+      "name": "Keep Unsent Alert",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        40
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ '/home/node/files/unsent/' + $binary.data.fileName }}",
+        "dataPropertyName": "data",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format": {
+      "main": [
+        [
+          {
+            "node": "Alert Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Alert Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Slack": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Unsent Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Owner": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Unsent Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unsent Slack": {
+      "main": [
+        [
+          {
+            "node": "Unsent To File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unsent Owner": {
+      "main": [
+        [
+          {
+            "node": "Unsent To File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unsent To File": {
+      "main": [
+        [
+          {
+            "node": "Keep Unsent Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": false,
+    "timezone": "America/Chicago",
+    "executionTimeout": 300
+  },
+  "meta": {
+    "generated_by": "scripts/gen_n8n.py. Do not edit this file by hand."
+  }
+}

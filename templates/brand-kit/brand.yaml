@@ -1,0 +1,18 @@
+# An example brand kit. The marketing agent makes a real one in projects/_studio/brand/.
+# Names here are made up. Check the public handles yourself before you use a name.
+name_options:
+  - name: Example Studio
+    why: short and easy to spell
+    handle_checks:
+      bluesky: unchecked
+      mastodon: unchecked
+      github: unchecked
+bio:
+  short: "Small tools for people who run one-person shops."
+  long: "We build small tools that fix one annoying job. We tell you what each tool does and what it costs."
+colors:
+  ink: "#1c1b22"
+  paper: "#fbfaf7"
+  accent: "#2f6f6d"
+logo: logo.svg
+voice: voice.md

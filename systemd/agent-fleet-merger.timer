@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet merger every 15 minutes
+PartOf=agent-fleet.target
+
+[Timer]
+OnBootSec=10min
+OnUnitInactiveSec=15min
+AccuracySec=1min
+Unit=agent-fleet-merger.service
+
+[Install]
+WantedBy=agent-fleet.target

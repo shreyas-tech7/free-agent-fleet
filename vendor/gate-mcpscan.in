@@ -1,0 +1,2 @@
+# Gate image: Cisco mcp-scanner (https://github.com/cisco-ai-defense/mcp-scanner). It needs mcp 2.x, so it has its own venv.
+cisco-ai-mcp-scanner==4.8.7

@@ -1,0 +1,35 @@
+[Unit]
+Description=agent-fleet Slack adapter (Fleet HQ: /fleet, buttons, App Home, and the #board mirror, outside agent-fleet.target)
+Documentation=file:///opt/agent-fleet/repo/docs/SLACK.md
+After=network-online.target agent-fleet-control.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+# No PartOf and no agent-fleet.target. The command /fleet stop must not stop this unit, because it answers the confirm button.
+
+[Service]
+Type=simple
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+# Bolt lives in its own hash-locked venv. The kill-switch bot uses no package at all. See install/54-slack.sh.
+ExecStart=/opt/agent-fleet/venvs/control/bin/python -m ops.control.slackbot
+Restart=always
+RestartSec=10
+MemoryMax=300M
+# Like the control bot, this unit leaves out NoNewPrivileges. /fleet stop and /fleet pause call sudo for the kill switch rules.
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/control.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet n8n nightly backup
+PartOf=agent-fleet.target
+
+[Timer]
+OnCalendar=*-*-* 02:20:00
+Persistent=true
+RandomizedDelaySec=120
+Unit=agent-fleet-n8n-backup.service
+
+[Install]
+WantedBy=agent-fleet.target

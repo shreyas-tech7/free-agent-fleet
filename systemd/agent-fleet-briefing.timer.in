@@ -1,0 +1,12 @@
+[Unit]
+Description=agent-fleet daily brief at the owner's time
+PartOf=agent-fleet.target
+
+[Timer]
+# The time and the zone come from the live config (briefing.time and owner.timezone).
+OnCalendar=@BRIEF_CALENDAR@
+Persistent=true
+Unit=agent-fleet-briefing.service
+
+[Install]
+WantedBy=agent-fleet.target

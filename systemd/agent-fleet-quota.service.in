@@ -1,0 +1,33 @@
+[Unit]
+Description=agent-fleet quota tracker (writes budget.json)
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=agent-fleet-router.service
+PartOf=agent-fleet.target
+
+[Service]
+Type=oneshot
+User=fleetops
+Group=fleetops
+WorkingDirectory=@REPO@
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.quota.tracker
+TimeoutStartSec=120
+MemoryMax=150M
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/agent-fleet /var/lib/agent-fleet-ops/quota /var/lib/agent-fleet-ops/logs
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/router-admin.env

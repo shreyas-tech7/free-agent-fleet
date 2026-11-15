@@ -1,0 +1,9 @@
+# Paths that an agent branch may change (merger gate G3).
+# Deny by default. A change must match one pattern here and must not match core/policy/protected_paths.txt.
+# One pattern per line. A pattern ending in / matches everything under that folder.
+# Other patterns use shell-style wildcards. Lines that start with # are comments.
+agents/*/SOUL.md
+skills/
+projects/
+docs/
+config/stages.yaml

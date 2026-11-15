@@ -1,0 +1,27 @@
+[Unit]
+Description=agent-fleet export of agent memory and Kanban data for the backup (runs as fleet)
+Documentation=file:///opt/agent-fleet/repo/docs/RUNBOOK.md
+PartOf=agent-fleet.target
+
+[Service]
+Type=oneshot
+User=fleet
+Group=fleet
+WorkingDirectory=/home/fleet
+Environment=HOME=/home/fleet
+Environment=PATH=/home/fleet/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=@REPO@
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStart=/usr/bin/python3 -m ops.backup.export_fleet
+TimeoutStartSec=600
+MemoryMax=400M
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/agent-fleet/exports /home/fleet/.hermes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes

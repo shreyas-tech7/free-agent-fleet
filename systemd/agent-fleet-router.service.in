@@ -1,0 +1,42 @@
+[Unit]
+Description=agent-fleet model router (OmniRoute in rootless Docker)
+Documentation=file:///opt/agent-fleet/repo/docs/ARCHITECTURE.md
+After=network-online.target user@@FLEETOPS_UID@.service
+Wants=network-online.target user@@FLEETOPS_UID@.service
+PartOf=agent-fleet.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=fleetops
+Group=fleetops
+Environment=HOME=/home/fleetops
+Environment=XDG_RUNTIME_DIR=/run/user/@FLEETOPS_UID@
+Environment=DOCKER_HOST=unix:///run/user/@FLEETOPS_UID@/docker.sock
+Environment=HERMES_MANAGED_DIR=/etc/hermes
+ExecStartPre=@REPO@/ops/units/wait-docker @FLEETOPS_UID@
+ExecStartPre=-/usr/bin/docker rm -f agent-fleet-router
+ExecStart=/usr/bin/docker run --rm --name agent-fleet-router \
+  --memory @ROUTER_MEMORY@ --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges \
+  --env-file /etc/agent-fleet/secrets/router.env \
+  --env-file /etc/agent-fleet/secrets/router-admin.env \
+  -e PORT=20128 -e OMNIROUTE_HEADLESS=1 -e REQUIRE_API_KEY=true \
+  -e OMNIROUTE_SERVER_HOST=0.0.0.0 -e AUTH_COOKIE_SECURE=false \
+  -p 127.0.0.1:@ROUTER_PORT@:20128 \
+  -v agent-fleet-router-data:/app/data \
+  @ROUTER_IMAGE@
+ExecStop=/usr/bin/docker stop -t 40 agent-fleet-router
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=180
+TimeoutStopSec=60
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+TemporaryFileSystem=/etc/agent-fleet/secrets:ro
+BindReadOnlyPaths=/etc/agent-fleet/secrets/router.env /etc/agent-fleet/secrets/router-admin.env
+
+[Install]
+WantedBy=agent-fleet.target

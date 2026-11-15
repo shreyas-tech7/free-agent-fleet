@@ -1,0 +1,434 @@
+{
+  "name": "fleet-event",
+  "nodes": [
+    {
+      "id": "c62434d1-00df-59cb-821f-a7279737cd68",
+      "name": "Fleet Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fleet-event",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "FLEET_CRED:fleet-event-token",
+          "name": "fleet-event-token"
+        }
+      }
+    },
+    {
+      "id": "99549d66-f2a0-5216-8581-c671d9c2a1d2",
+      "name": "Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const SEVERITIES = ['info', 'warn', 'critical'];\nconst AGENTS = ['orchestrator', 'research', 'build', 'marketing', 'feedback', 'security', 'improver'];\nconst CHANNELS = { alert: 'alerts', health: 'alerts', brief: 'brief', approval: 'approvals', board: 'board', agent: 'agents',\n                   n8n: 'n8n', backup: 'n8n', ledger: 'n8n', github: 'github', portfolio: 'portfolio' };\nconst ICON = { info: ':information_source:', warn: ':warning:', critical: ':rotating_light:' };\nconst RUNNABLE = ['health-watch', 'token-ledger'];\nconst body = $input.first().json.body || {};\nconst type = String(body.type || '');\nconst severity = String(body.severity || 'info');\nif (!/^[a-z0-9_]+(\\.[a-z0-9_]+){0,3}$/.test(type) || !SEVERITIES.includes(severity)) {\n  return [{ json: { valid: false } }];\n}\nconst title = String(body.title || '').replace(/[\\r\\n]+/g, ' ').slice(0, 120);\nconst text = String(body.text || '').slice(0, 1000);\nconst source = String(body.source || '');\nconst channel = CHANNELS[type.split('.')[0]] || 'hq';\nconst head = title ? '*' + title + '*\\n' : '';\nconst fields = body.fields && typeof body.fields === 'object' ? body.fields : {};\nconst runWorkflow = type === 'run.request' && typeof fields.workflow === 'string' && RUNNABLE.indexOf(fields.workflow) !== -1 ? fields.workflow : '';\nreturn [{ json: {\n  valid: true, type, channel, severity, critical: severity === 'critical', runWorkflow,\n  agent: AGENTS.includes(source) ? source : '',\n  slackText: (ICON[severity] + ' ' + head + text).slice(0, 2900),\n  notifyText: ((severity === 'critical' ? 'CRITICAL: ' : '') + (title ? title + '. ' : '') + text).slice(0, 900)\n} }];\n"
+      }
+    },
+    {
+      "id": "c21550f2-9525-599f-9b0f-8ed544f4530a",
+      "name": "Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        460,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e5dba053-bbc4-52da-86c2-b058a0ef8597",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "91e36ba2-8337-5224-8bf9-9f39f88feda3",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        700,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/slack/post",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: $json.channel, text: $json.slackText, agent: $json.agent, severity: $json.severity }) }}"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "189c1b3a-0ce4-5f59-8e4f-dbb257c075d7",
+      "name": "Critical",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5ac50983-7c57-5006-985d-0938870b8351",
+              "leftValue": "={{ $json.critical }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2baf2ce-fb32-5a56-99ae-516beb63606e",
+      "name": "Notify Owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        940,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/notify",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.notifyText, severity: 'critical' }) }}"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "de7a003d-a788-594b-8f07-1a5097565b33",
+      "name": "Run health-watch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "15cf392d-d34a-512c-b7e7-815005e92a14",
+              "leftValue": "={{ $json.runWorkflow === 'health-watch' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "07bd0d5e-5d61-5077-a6c4-3f4350f359ed",
+      "name": "Start health-watch",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        940,
+        240
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "FLEET_WF:health-watch",
+          "mode": "id"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "7abae746-f36e-51b1-a67e-2b1b217b1865",
+      "name": "Run token-ledger",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "15cfa983-6068-541f-8302-e8ed938f2fab",
+              "leftValue": "={{ $json.runWorkflow === 'token-ledger' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "562e6bba-b68e-5169-a8d8-1b18e6b97b11",
+      "name": "Start token-ledger",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        940,
+        400
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "FLEET_WF:token-ledger",
+          "mode": "id"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "89644e4a-cccd-51ac-befd-114008ae9c18",
+      "name": "Report Done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1180,
+        320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8096/v1/slack/post",
+        "options": {
+          "timeout": 15000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channel: 'hq', text: 'Finished the workflow ' + $('Normalize').first().json.runWorkflow + '.', severity: 'info' }) }}"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "FLEET_CRED:fleet-action-token",
+          "name": "fleet-action-token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Valid": {
+      "main": [
+        [
+          {
+            "node": "Run health-watch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Run token-ledger",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Critical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run health-watch": {
+      "main": [
+        [
+          {
+            "node": "Start health-watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start health-watch": {
+      "main": [
+        [
+          {
+            "node": "Report Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run token-ledger": {
+      "main": [
+        [
+          {
+            "node": "Start token-ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start token-ledger": {
+      "main": [
+        [
+          {
+            "node": "Report Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fleet Event": {
+      "main": [
+        [
+          {
+            "node": "Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize": {
+      "main": [
+        [
+          {
+            "node": "Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critical": {
+      "main": [
+        [
+          {
+            "node": "Notify Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "timezone": "America/Chicago",
+    "executionTimeout": 300,
+    "errorWorkflow": "FLEET_WF:fleet-error"
+  },
+  "meta": {
+    "generated_by": "scripts/gen_n8n.py. Do not edit this file by hand."
+  }
+}

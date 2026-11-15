@@ -1,0 +1,28 @@
+# SearXNG settings for agent-fleet. The container reads this file read-only.
+# The secret key comes from the SEARXNG_SECRET environment variable. It is never in this file.
+# SearXNG listens on 127.0.0.1:8888 on the host. Only Hermes web search and Crawl4AI use it.
+use_default_settings: true
+
+general:
+  instance_name: "agent-fleet search"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+server:
+  limiter: false          # the service is loopback only, so there is no public to limit
+  image_proxy: false
+  public_instance: false
+
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 12.0
+  pool_connections: 20
+
+ui:
+  static_use_hash: true

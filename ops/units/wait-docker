@@ -1,0 +1,14 @@
+#!/bin/sh
+# Wait until the rootless Docker daemon of a user answers. Used by ExecStartPre lines.
+# Usage: wait-docker UID [SECONDS]
+uid="$1"
+limit="${2:-120}"
+export DOCKER_HOST="unix:///run/user/${uid}/docker.sock"
+i=0
+while [ "$i" -lt "$limit" ]; do
+  if /usr/bin/docker info >/dev/null 2>&1; then exit 0; fi
+  i=$((i + 2))
+  sleep 2
+done
+echo "wait-docker: the Docker daemon of uid ${uid} did not answer in ${limit} seconds" >&2
+exit 1
