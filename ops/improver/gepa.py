@@ -23,7 +23,7 @@ import urllib.request
 
 REPO = os.environ.get("FLEET_REPO", "/opt/agent-fleet/repo")
 sys.path.insert(0, REPO)
-from ops.fleetlib import paths  # noqa: E402
+from ops.fleetlib import paths, redact  # noqa: E402
 
 VENV_PYTHON = "/opt/agent-fleet/venvs/evolve/bin/python"
 ROUTER = os.environ.get("FLEET_ROUTER_URL", "http://127.0.0.1:20128/v1")
@@ -103,7 +103,9 @@ def run(now=None, urlopen=urllib.request.urlopen, runner=subprocess.run):
         return "stopped: the run for %s took longer than %d seconds" % (skill, TIMEOUT_SECONDS), 1
     tail = " ".join((proc.stdout or "").strip().splitlines()[-1:])[:160]
     if proc.returncode != 0:
-        return "failed for %s (exit %d)" % (skill, proc.returncode), 1
+        # The first weekly run failed with only "exit 1" in the cron note. Keep the last line of the error, with secrets hidden. See D-071.
+        why = redact.redact_text(" ".join((proc.stderr or "").strip().splitlines()[-1:])[:200])
+        return "failed for %s (exit %d)%s" % (skill, proc.returncode, ": " + why if why else ""), 1
     return "evolved %s. Output in projects/_improver/gepa/%s. %s" % (skill, now.strftime("%Y-%m-%d"), tail), 0
 
 

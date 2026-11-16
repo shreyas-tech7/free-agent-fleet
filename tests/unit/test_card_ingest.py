@@ -136,3 +136,16 @@ def test_kanban_create_fails_without_an_id():
         returncode, stdout, stderr = 0, "no id here", ""
     with pytest.raises(RuntimeError):
         ingest.kanban_create("p1", "build", "T", "B", run=lambda argv, **kw: Bad)
+
+
+def test_the_ingester_runs_when_the_live_config_is_unreadable(monkeypatch):
+    """The user fleet cannot read fleet.yaml. Every queued card waited for a day because of this. See D-070."""
+    def refuse(*a, **k):
+        raise config.ConfigError("cannot read /etc/agent-fleet/fleet.yaml. Run this command with sudo.")
+    monkeypatch.setattr(config, "load", refuse)
+    assert ingest.load_config()["ports"]["guard"] == config.defaults()["ports"]["guard"]
+
+
+def test_a_failed_run_still_exits_zero_so_the_path_unit_keeps_its_pause(monkeypatch, capsys):
+    monkeypatch.setattr(ingest, "run_once", lambda *a, **k: (_ for _ in ()).throw(OSError("disk")))
+    assert ingest.main() == 0 and "OSError" in capsys.readouterr().out

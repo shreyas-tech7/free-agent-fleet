@@ -15,8 +15,8 @@ import re
 import secrets as pysecrets
 import time
 
-from ops.control import approvals, commands, quiet, slackout
-from ops.fleetlib import config, httpc, httpd, jsonio, log, paths, tokens
+from ops.control import approvals, commands, quiet, slackout, slackviews
+from ops.fleetlib import config, httpc, httpd, jsonio, log, paths, redact, tokens
 
 LOG = log.get("control-api")
 AGENTS = slackout.AGENTS
@@ -202,7 +202,9 @@ class Api:
             raise httpd.HttpError(400, str(exc)) from None
         self.notify("Approval %s needed (%s): %s\nReply /approve %s or /reject %s" % (record["id"], record["kind"], record["summary"], record["id"], record["id"]))
         try:
-            self.slack.post("approvals", "Approval %s (%s): %s" % (record["id"], record["kind"], record["summary"]), severity="info")
+            card = dict(record, summary=redact.redact_text(record["summary"]))      # the buttons carry only the approval ID
+            self.slack.post("approvals", "Approval %s (%s): %s" % (record["id"], record["kind"], record["summary"]), severity="info",
+                            blocks=slackviews.approval_blocks(card))
         except slackout.SlackError:
             pass
         return 202, {"id": record["id"], "status": record["status"]}

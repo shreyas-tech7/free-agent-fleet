@@ -284,6 +284,16 @@ def test_the_client_is_built_only_when_the_token_exists(fleet_env):
     assert isinstance(slackout.build_client(cfg()), slackout.HqClient)
 
 
+def test_the_control_bot_gives_the_sender_its_client(fleet_env):
+    """Bug found on the first live run: main() built SlackOut with no client, so every post went to the sink."""
+    from ops.control import main as control_main
+    from ops.fleetlib import secrets
+    assert control_main.build_slack(cfg()).client is None
+    fleet_env["secrets"].mkdir(exist_ok=True)
+    secrets.set_value("SLACK_HQ_BOT_TOKEN", "xoxb-" + "q" * 24)
+    assert isinstance(control_main.build_slack(cfg()).client, slackout.HqClient)
+
+
 # ------------------------------------------------------------------------------------------------ notify routes and severity
 class Req:
     def __init__(self, body, token):

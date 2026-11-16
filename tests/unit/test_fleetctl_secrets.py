@@ -497,3 +497,29 @@ def test_the_encryption_key_is_still_never_rotated(n8n_secrets):
     s = Script()
     assert secretcmd.cmd_rotate(args(name="N8N_ENCRYPTION_KEY"), s.con, hash_runner()) == 2
     assert secrets.value_of("N8N_ENCRYPTION_KEY") == "k" * 44 and "Do not rotate" in s.text
+
+
+# ------------------------------------------------------------------ the chat probe of LLM7, Aion, and Gonka (D-069)
+def test_chat_probe_sends_one_token_call_and_never_prints_the_key(fleet_env):
+    key = "llm7-" + "Z9y8X7w6V5" * 3
+    secrets.set_value("LLM7_API_KEY", key)
+    http = FakeHttp({"https://api.llm7.io/v1/chat/completions": (200, {"choices": []})})
+    state, detail = checks.check_secret("LLM7_API_KEY", config.load(), http=http)
+    assert state == "ok" and key not in detail
+    call = http.calls[0]
+    assert call["method"] == "POST" and call["json"]["max_tokens"] == 1 and call["headers"]["Authorization"] == "Bearer " + key
+
+
+def test_chat_probe_tells_a_402_from_a_refused_key(fleet_env):
+    secrets.set_value("AION_API_KEY", "aion-" + "Q1w2E3r4T5" * 3)
+    state, detail = checks.check_secret("AION_API_KEY", config.load(), http=FakeHttp({"https://api.aionlabs.ai": (402, {})}))
+    assert state == "failed" and "no free credit" in detail and "Do not add money" in detail
+    state, _ = checks.check_secret("AION_API_KEY", config.load(), http=FakeHttp({"https://api.aionlabs.ai": (401, {})}))
+    assert state == "failed"
+
+
+def test_gonka_probe_tells_no_free_credit_from_a_refused_key(fleet_env):
+    secrets.set_value("GONKA_API_KEY", "gonka-" + "Q1w2E3r4T5" * 3)
+    state, detail = checks.check_secret("GONKA_API_KEY", config.load(), http=FakeHttp({"https://proxy.gonkabroker.com": (402, {})}))
+    assert state == "failed" and "no free credit" in detail and "Do not add money" in detail
+    assert checks.check_secret("GONKA_API_KEY", config.load(), http=FakeHttp({"https://proxy.gonkabroker.com": (200, {})}))[0] == "ok"

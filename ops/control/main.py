@@ -24,6 +24,11 @@ def build_channels(cfg):
     return [c for c in out if c.ready()]
 
 
+def build_slack(cfg):
+    """The Slack sender of the bot. Without a client, every message goes to the sink file. See D-068."""
+    return slackout.SlackOut(cfg, client=slackout.build_client(cfg))
+
+
 def notify_all(chans, text):
     if hold.active():                      # a selftest holds owner messages. See D-043.
         hold.record("chat", text)
@@ -90,7 +95,7 @@ def main():
     cfg = config.load()
     controller = commands.Controller(cfg)
     chans = build_channels(cfg)
-    slack = slackout.SlackOut(cfg)
+    slack = build_slack(cfg)
     stop = threading.Event()
     for ch in chans:
         threading.Thread(target=serve_channel, args=(ch, controller, stop), daemon=True).start()

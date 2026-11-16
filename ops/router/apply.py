@@ -218,6 +218,27 @@ def plan_providers(cfg, combos_cfg):
     return wanted
 
 
+def node_index(router):
+    """{prefix: node id} of the custom OpenAI compatible nodes that the router holds."""
+    status, data, _ = router.req("GET", "/api/provider-nodes")
+    nodes = [n for n in ((data or {}).get("nodes") or (data if isinstance(data, list) else [])) if isinstance(n, dict)] if status == 200 else []
+    return {n.get("prefix"): n.get("id") for n in nodes if n.get("prefix") and n.get("id")}
+
+
+def ensure_node(router, node, index):
+    """Make the custom node of a provider like LLM7. Returns its id, or None when the router refused. See D-069."""
+    if node["prefix"] in index:
+        return index[node["prefix"]]
+    status, created, _ = router.req("POST", "/api/provider-nodes", {"name": node["name"], "prefix": node["prefix"], "apiType": node["api_type"],
+                                                                     "baseUrl": node["base_url"], "providerIdSuffix": "fleet-" + node["prefix"]})
+    if status not in (200, 201) or not isinstance(created, dict):
+        return None
+    made = created.get("node", created).get("id")
+    if made:
+        index[node["prefix"]] = made
+    return made
+
+
 def apply_test_combo(router, on, spec, state):
     """Make or remove the provider node and the combo of the mock model. Returns a short word for the report."""
     prov, combo = spec["provider"], spec["combo"]
@@ -279,6 +300,20 @@ def apply(router, cfg=None, combos_cfg=None, state_path=None, write_secret=None,
 
     # 2. provider connections
     wanted = plan_providers(cfg, combos_cfg)
+    index = node_index(router)
+    rids = {pid: spec["router_id"] for pid, spec in combos_cfg["providers"].items()}
+    for pid, spec in combos_cfg["providers"].items():
+        if spec.get("node") and spec["node"]["prefix"] in index:
+            rids[pid] = index[spec["node"]["prefix"]]                    # a node provider is known to the router by its node id
+    for pid in list(wanted):
+        spec = combos_cfg["providers"][pid]
+        if spec.get("node"):
+            made = ensure_node(router, spec["node"], index)
+            if made:
+                rids[pid] = made
+            else:
+                report["providers"][pid] = "failed to make the provider node"
+                del wanted[pid]
     status, data, _ = router.req("GET", "/api/providers")
     existing = {}
     for conn in (data or {}).get("connections", []) if status == 200 else []:
@@ -286,7 +321,7 @@ def apply(router, cfg=None, combos_cfg=None, state_path=None, write_secret=None,
     applied = state.get("providers", {})
     for pid, values in wanted.items():
         spec = combos_cfg["providers"][pid]
-        rid = spec["router_id"]
+        rid = rids[pid]
         key_name = spec["secrets"][0]
         digest = _hash(json.dumps(values, sort_keys=True))
         conns = existing.get(rid, [])
@@ -306,7 +341,7 @@ def apply(router, cfg=None, combos_cfg=None, state_path=None, write_secret=None,
                 report["needs_restart"] = True
                 state.setdefault("env", {})[name] = _hash(value)
     for rid, conns in existing.items():
-        pid = next((p for p, s in combos_cfg["providers"].items() if s["router_id"] == rid), None)
+        pid = next((p for p, r in rids.items() if r == rid), None)
         if pid is not None and pid not in wanted:
             for conn in conns:
                 router.req("DELETE", "/api/providers/%s" % conn["id"])
@@ -320,7 +355,7 @@ def apply(router, cfg=None, combos_cfg=None, state_path=None, write_secret=None,
     status, data, _ = router.req("GET", "/api/providers")
     conn_ids = {c.get("provider"): c.get("id") for c in (data or {}).get("connections", [])} if status == 200 else {}
     for pid in wanted:
-        rid = combos_cfg["providers"][pid]["router_id"]
+        rid = rids[pid]
         if conn_ids.get(rid):
             st, models, _ = router.req("GET", "/api/providers/%s/models" % conn_ids[rid])
             offered[pid] = _offered(models) if st == 200 and _offered(models) else None

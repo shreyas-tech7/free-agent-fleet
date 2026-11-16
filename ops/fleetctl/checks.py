@@ -41,6 +41,19 @@ def _generic(spec, value, http):
     return _status_result(_http(http, spec.get("method", "GET"), spec["url"], headers))
 
 
+def _openai_probe(spec, value, http):
+    """One chat call with max_tokens 1. These providers list their models without a key, so a model list proves nothing.
+    A 402 means that the key works but the account has no free credit. It never charges, because no balance exists."""
+    body = {"model": spec["model"], "max_tokens": 1, "messages": [{"role": "user", "content": "Reply with OK."}]}
+    try:
+        resp = http.request("POST", spec["url"], headers={"Authorization": "Bearer " + value}, json_body=body, timeout=30)
+    except httpc.TransportError:
+        return "unreachable", "no answer from the provider"
+    if resp.status == 402:
+        return "failed", "the key is accepted, but the account has no free credit (status 402). Do not add money. Wait for the free grant"
+    return _status_result(resp)
+
+
 def _router_models(cfg, value, http):
     url = "http://127.0.0.1:%d/v1/models" % config.port(cfg, "router")
     return _status_result(_http(http, "GET", url, {"Authorization": "Bearer " + value}, timeout=10))
@@ -139,6 +152,8 @@ def check_secret(name, cfg=None, http=httpc, smtp_module=smtplib):
     if kind == "skip":
         return "skipped", spec.get("reason", "no test call")
     value = secrets.value_of(name)
+    if kind == "openai_probe":
+        return _openai_probe(spec, value, http)
     if kind == "router_models":
         return _router_models(cfg, value, http)
     if kind == "telegram_getme":

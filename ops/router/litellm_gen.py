@@ -24,6 +24,13 @@ PROVIDERS = {
     "cohere": ("cohere_chat", "COHERE_API_KEY"),
 }
 
+# OpenAI compatible providers that OmniRoute reaches through a custom node. LiteLLM uses its openai/ route with an api_base.
+OPENAI_COMPATIBLE = {
+    "llm7": ("https://api.llm7.io/v1", "LLM7_API_KEY"),
+    "aion": ("https://api.aionlabs.ai/v1", "AION_API_KEY"),
+    "gonka": ("https://proxy.gonkabroker.com/v1", "GONKA_API_KEY"),
+}
+
 HEADER = """# Generated from config/router/combos.yaml by ops/router/litellm_gen.py. Do not edit by hand.
 # LiteLLM is the fallback router. It uses the same virtual model names as OmniRoute.
 # Run it only if OmniRoute does not work: litellm --config config/router/litellm.yaml --host 127.0.0.1 --port 20128
@@ -42,6 +49,9 @@ def build():
             provider, _, model = target.partition("/")
             if provider == "ollama":
                 params = {"model": "ollama/" + model, "api_base": "http://127.0.0.1:11434"}
+            elif provider in OPENAI_COMPATIBLE:
+                base, env = OPENAI_COMPATIBLE[provider]
+                params = {"model": "openai/" + model, "api_base": base, "api_key": "os.environ/%s" % env}
             elif provider in PROVIDERS:
                 prefix, env = PROVIDERS[provider]
                 params = {"model": "%s/%s" % (prefix, model), "api_key": "os.environ/%s" % env}

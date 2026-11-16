@@ -31,6 +31,24 @@ providers:
     secrets: [GEMINI_API_KEY]
     plan: free
     terms: "https://ai.google.dev/gemini-api/terms"
+  llm7:
+    router_id: llm7
+    secrets: [LLM7_API_KEY]
+    plan: free
+    terms: "https://docs.llm7.io"
+    node: {name: "LLM7", prefix: llm7, api_type: chat, base_url: "https://api.llm7.io/v1"}
+  aion:
+    router_id: aion
+    secrets: [AION_API_KEY]
+    plan: free
+    terms: "https://aionlabs.ai"
+    node: {name: "Aion Labs", prefix: aion, api_type: chat, base_url: "https://api.aionlabs.ai/v1"}
+  gonka:
+    router_id: gonka
+    secrets: [GONKA_API_KEY]
+    plan: free
+    terms: "https://docs.gonkabroker.com/guides/billing-and-deposits/"
+    node: {name: "Gonka Broker", prefix: gonka, api_type: chat, base_url: "https://proxy.gonkabroker.com/v1"}
   nvidia:
     router_id: nvidia
     secrets: [NVIDIA_API_KEY]
@@ -65,6 +83,8 @@ combos:
       - cloudflare-ai/@cf/openai/gpt-oss-120b
       - openrouter/nvidia/nemotron-3.5-lightning:free
       - openrouter/inclusionai/ling-3.2-flash:free
+      - llm7/DeepSeek-V4-Flash-0731
+      - gonka/deepseek-ai/DeepSeek-V4-Flash-0731
   fleet-worker:       # research, marketing, feedback, security. Fast and good enough.
     strategy: priority
     targets:
@@ -73,6 +93,10 @@ combos:
       - openrouter/inclusionai/ling-3.2-flash:free
       - openrouter/google/gemma-4-26b-a4b-it:free
       - cloudflare-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+      - llm7/DeepSeek-V4-Flash-0731
+      - llm7/gpt-oss:20b
+      - gonka/deepseek-ai/DeepSeek-V4-Flash-0731
+      - aion/aion-labs/aion-3.5-mini
   fleet-coder:        # build agent. Coding models first.
     strategy: priority
     targets:
@@ -83,6 +107,8 @@ combos:
       - openrouter/google/gemma-4-31b-it:free
       - openrouter/nvidia/nemotron-3.5-lightning:free
       - openrouter/inclusionai/ling-3.2-flash:free
+      - llm7/DeepSeek-V4-Flash-0731
+      - gonka/zai-org/GLM-5.3-Flash
   fleet-dev:          # TESTS ONLY. Trial keys that forbid business use. No fleet client key can call it.
     strategy: priority
     dev_only: true

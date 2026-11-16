@@ -73,7 +73,7 @@ def test_a_full_run_writes_to_the_working_clone_and_reports(fleet_env, tmp_path,
 
     def fake_run(argv, **kw):
         calls.append((argv, kw))
-        return subprocess.CompletedProcess(argv, 0, "line one\nBest score 0.82\n", "")
+        return subprocess.CompletedProcess(argv, 0, "line one\nBest score 0.82\n", "")  # nosemgrep: dangerous-subprocess-use-audit
 
     class R:
         status = 200
@@ -113,10 +113,10 @@ def test_a_failed_or_timed_out_run_is_reported_with_a_nonzero_code(fleet_env, tm
 
         def __exit__(self, *a):
             return False
-    assert gepa.run(NOW, lambda req, timeout: R(), lambda argv, **kw: subprocess.CompletedProcess(argv, 3, "", "boom"))[1] == 1
+    assert gepa.run(NOW, lambda req, timeout: R(), lambda argv, **kw: subprocess.CompletedProcess(argv, 3, "", "boom"))[1] == 1  # nosemgrep: dangerous-subprocess-use-audit
 
     def slow(argv, **kw):
-        raise subprocess.TimeoutExpired(argv, 1)
+        raise subprocess.TimeoutExpired(argv, 1)  # nosemgrep: dangerous-subprocess-use-audit
     assert "longer than" in gepa.run(NOW, lambda req, timeout: R(), slow)[0]
 
 
@@ -146,3 +146,33 @@ def test_the_doctor_check_for_the_runner(fleet_env, tmp_path, monkeypatch):
     assert doctor.check_gepa(ctx)[0].status == WAITING
     secrets.set_value("GROQ_API_KEY", "gsk_" + "A1b2C3d4E5" * 3)
     assert doctor.check_gepa(ctx)[0].status == OK
+
+
+def test_a_failed_run_keeps_the_last_error_line_and_hides_a_key(fleet_env, tmp_path, monkeypatch):
+    """The first weekly run said only exit 1. The reason must reach the cron note. See D-071."""
+    repo = tmp_path / "repo"
+    (repo / "skills" / "alpha").mkdir(parents=True)
+    (repo / "skills" / "alpha" / "SKILL.md").write_text("x")
+    venv = tmp_path / "python"
+    venv.write_text("")
+    monkeypatch.setattr(gepa, "REPO", str(repo))
+    monkeypatch.setattr(gepa, "VENV_PYTHON", str(venv))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profile"))
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / ".env").write_text("ROUTER_KEY_HERMES=k\n")
+    monkeypatch.setenv("FLEET_WORK_CLONE", str(tmp_path / "work"))
+    key = "sk-" + "a" * 30
+
+    class R:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+    stderr = "Traceback (most recent call last):\nlitellm.RateLimitError: 429 for key %s" % key
+    msg, code = gepa.run(NOW, lambda req, timeout: R(), lambda argv, **kw: subprocess.CompletedProcess(argv, 1, "", stderr))  # nosemgrep: dangerous-subprocess-use-audit
+    assert code == 1 and "RateLimitError" in msg and key not in msg
+    msg, code = gepa.run(NOW, lambda req, timeout: R(), lambda argv, **kw: subprocess.CompletedProcess(argv, 1, "", ""))  # nosemgrep: dangerous-subprocess-use-audit
+    assert code == 1 and msg == "failed for alpha (exit 1)"

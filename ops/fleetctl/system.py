@@ -33,6 +33,7 @@ TIMERS = {
     "n8n_releases": "agent-fleet-n8n-releases.timer",
     "n8n_migration": "agent-fleet-n8n-migration.timer",
     "portfolio": "agent-fleet-portfolio.timer",
+    "cards": "agent-fleet-cards.path",       # a path unit that dies on a start limit leaves every queued card waiting. See D-070.
 }
 # Names that `fleetctl logs` accepts, besides the services.
 LOG_UNITS = dict({k: v[0] + ".service" for k, v in SERVICES.items()},

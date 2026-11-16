@@ -33,6 +33,18 @@ model_list:
     model: openrouter/inclusionai/ling-3.2-flash:free
     api_key: os.environ/OPENROUTER_API_KEY
     order: 6
+- model_name: fleet-smart
+  litellm_params:
+    model: openai/DeepSeek-V4-Flash-0731
+    api_base: https://api.llm7.io/v1
+    api_key: os.environ/LLM7_API_KEY
+    order: 7
+- model_name: fleet-smart
+  litellm_params:
+    model: openai/deepseek-ai/DeepSeek-V4-Flash-0731
+    api_base: https://proxy.gonkabroker.com/v1
+    api_key: os.environ/GONKA_API_KEY
+    order: 8
 - model_name: fleet-worker
   litellm_params:
     model: gemini/gemini-2.5-flash
@@ -58,6 +70,30 @@ model_list:
     model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
     api_key: os.environ/CLOUDFLARE_AI_API_TOKEN
     order: 5
+- model_name: fleet-worker
+  litellm_params:
+    model: openai/DeepSeek-V4-Flash-0731
+    api_base: https://api.llm7.io/v1
+    api_key: os.environ/LLM7_API_KEY
+    order: 6
+- model_name: fleet-worker
+  litellm_params:
+    model: openai/gpt-oss:20b
+    api_base: https://api.llm7.io/v1
+    api_key: os.environ/LLM7_API_KEY
+    order: 7
+- model_name: fleet-worker
+  litellm_params:
+    model: openai/deepseek-ai/DeepSeek-V4-Flash-0731
+    api_base: https://proxy.gonkabroker.com/v1
+    api_key: os.environ/GONKA_API_KEY
+    order: 8
+- model_name: fleet-worker
+  litellm_params:
+    model: openai/aion-labs/aion-3.5-mini
+    api_base: https://api.aionlabs.ai/v1
+    api_key: os.environ/AION_API_KEY
+    order: 9
 - model_name: fleet-coder
   litellm_params:
     model: gemini/gemini-2.5-flash
@@ -93,6 +129,18 @@ model_list:
     model: openrouter/inclusionai/ling-3.2-flash:free
     api_key: os.environ/OPENROUTER_API_KEY
     order: 7
+- model_name: fleet-coder
+  litellm_params:
+    model: openai/DeepSeek-V4-Flash-0731
+    api_base: https://api.llm7.io/v1
+    api_key: os.environ/LLM7_API_KEY
+    order: 8
+- model_name: fleet-coder
+  litellm_params:
+    model: openai/zai-org/GLM-5.3-Flash
+    api_base: https://proxy.gonkabroker.com/v1
+    api_key: os.environ/GONKA_API_KEY
+    order: 9
 - model_name: fleet-local
   litellm_params:
     model: ollama/qwen3:1.7b

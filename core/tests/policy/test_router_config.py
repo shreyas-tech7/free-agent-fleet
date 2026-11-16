@@ -9,7 +9,10 @@ from ops.router import litellm_gen
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 COMBOS = ROOT / "config" / "router" / "combos.yaml"
-ALLOWED_PROVIDERS = {"groq", "cloudflare-ai", "gemini", "openrouter", "nvidia", "cohere", "ollama"}
+ALLOWED_PROVIDERS = {"groq", "cloudflare-ai", "gemini", "openrouter", "nvidia", "cohere", "ollama", "llm7", "aion", "gonka"}   # llm7, aion, gonka: added at the owner's request, see D-069 and D-072
+# Gonka Broker serves its API only at a host that starts with the word proxy. It is a plain OpenAI compatible API, not a proxy feature.
+# The owner allowed this one exact URL on 2026-11-15. A token passes only when it equals the URL. Any other use of the word still fails. See D-072.
+ALLOWED_TERM_HOSTS = frozenset({"https://proxy.gonkabroker.com/v1"})
 
 
 def router_files():
@@ -39,11 +42,20 @@ def test_no_forbidden_router_terms_anywhere():
         doc = yaml.safe_load(path.read_text())
         # Check keys and values. Comments are not data.
         for token in walk(doc):
+            if token in ALLOWED_TERM_HOSTS:
+                continue
             low = token.lower()
             for term in dl.FORBIDDEN_ROUTER_TERMS:
                 if term in low:
                     bad.append("%s: %r contains %r" % (path.name, token, term))
     assert not bad, bad
+
+
+def test_the_proxy_word_is_allowed_only_inside_the_one_owner_approved_url():
+    """The exception of D-072 must stay narrow. Every token with the word must be that exact URL."""
+    found = {token for path in router_files() for token in walk(yaml.safe_load(path.read_text())) if "proxy" in token.lower()}
+    assert found <= ALLOWED_TERM_HOSTS, found - ALLOWED_TERM_HOSTS
+    assert ALLOWED_TERM_HOSTS == {"https://proxy.gonkabroker.com/v1"}
 
 
 def test_no_subscription_provider_is_named():

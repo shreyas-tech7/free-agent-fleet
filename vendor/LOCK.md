@@ -49,7 +49,9 @@ Kinds: apt, binary, npm, pypi, docker, git, model, script.
 | osv-scanner | binary | https://github.com/google/osv-scanner/releases/download/v2.7.1/osv-scanner_linux_amd64 | v2.7.1 | fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8 | Apache-2.0 |
 | rtk | binary | https://github.com/rtk-ai/rtk/releases/download/v1.2.0/rtk-oss-x86_64-unknown-linux-musl.tar.gz | v1.2.0 | a28407dc13038bdc9c2a1f5a047b0c636e0c1d495b15523576e2adb992a06a17 | Apache-2.0 (rtk-oss edition) |
 | uv | binary | https://astral.sh/uv/0.13.8/install.sh | 0.13.8 | 4a7607589912d9c20e86b860b032f7c7f2913c9a3e76f46aef136885387452b8 | MIT or Apache-2.0 |
+| gate-base | docker | docker.io/python:3.13-slim-trixie | python:3.13-slim-trixie@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 | e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 | PSF-2.0 and others (Python official image) |
 | hermes-sandbox | docker | docker.io/nousresearch/hermes-sandbox | nousresearch/hermes-sandbox@sha256:c7d8607d076f26a64e0bd6828f74e1764af43fe3281368188459bb693bfa7567 | c7d8607d076f26a64e0bd6828f74e1764af43fe3281368188459bb693bfa7567 | see image |
+| n8n | docker | docker.n8n.io/n8nio/n8n (official image of github.com/n8n-io/n8n) | 2.47.4 | 56a3f0d56c2888b53ca7d89de4aa3de702888f33667c96a1f1d7118548f979e9 | Sustainable Use License |
 | omniroute | docker | docker.io/diegosouzapw/omniroute | diegosouzapw/omniroute@sha256:b52a17661a1aff42ffb78f349f423e986dfc55b57274f28559f8387622ef8ee4 | b52a17661a1aff42ffb78f349f423e986dfc55b57274f28559f8387622ef8ee4 | MIT |
 | searxng | docker | docker.io/searxng/searxng | searxng/searxng@sha256:0b104e2e1117b0ca83a36f3ac6ecda7d9ee948ccea6ead74750a03e1b856229a | 0b104e2e1117b0ca83a36f3ac6ecda7d9ee948ccea6ead74750a03e1b856229a | AGPL-3.0 |
 | agent-fleet-gate | docker-image | built from config/gate/Dockerfile on python:3.13-slim-trixie@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 | agent-fleet-gate:5785368db6b2 | sha256:2c1a8585ef70a080ae8e247cd2794c6501cafbe214cbd5876e9db89eb5a40261 | mixed, see the packages inside |
@@ -58,18 +60,20 @@ Kinds: apt, binary, npm, pypi, docker, git, model, script.
 | humanizer-skill | git | https://github.com/blader/humanizer | b48c832f0f809c1b5658edbb838c2521b72f2413 | per file in skills/*/UPSTREAM.md (1 skill) | MIT |
 | marketingskills-skills | git | https://github.com/coreyhaines31/marketingskills | 1f837447b20bb6f0e72d87b80ece1c221c362c7d | per file in skills/*/UPSTREAM.md (15 skills) | MIT |
 | n8n-skills | git | https://github.com/czlonkowski/n8n-skills (skills only, markdown only, not the hooks, not mcp.json) | v1.37.1 e037563e101749e630e6688d121d04529fe6ee7b | n/a, pinned by commit | MIT |
-| n8n-mcp | npm | https://www.npmjs.com/package/n8n-mcp (repository https://github.com/czlonkowski/n8n-mcp). Pinned with `vendor/n8n-mcp/package-lock.json`. Installed by `scripts/n8n-mcp-install.sh` with scripts off | 2.102.0, with `@modelcontextprotocol/sdk` overridden to 1.32.2 | 3703e9743965a894a490af14906600ab68f340a2b3b0ad0c2c0507eda6e71e4a (tarball). npm integrity sha512-ODC0ffkR4RlsQjvViQI+pbY1UknG/gqd0cNb6VqVslQ71Ax28Rvr0WDZEha63MLYvaqDpTq8tqzClV23p7TXNQ== | MIT |
-| guarddog | pypi | https://pypi.org/project/guarddog/ (a scan tool, run once from a throwaway venv, not installed in the fleet) | 3.2.0 | see PyPI | Apache-2.0 |
 | semgrep-rules | git | https://github.com/semgrep/semgrep-rules | a5ad1714f00c9f7fde980cab0ea1d6dc6d414fd2 | n/a (git commit) | Semgrep Rules License v1.0 (not redistributed in this repository) |
 | superpowers-skills | git | https://github.com/obra/superpowers | 22f0b463e7a5e579904dd6211a520321035526f7 | per file in skills/*/UPSTREAM.md (7 skills) | MIT |
 | deberta-v3-base-prompt-injection-v2 | model | https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2/tree/90c9989b1a342275dd0d1a95aad283c04e075671 | 90c9989b1a342275dd0d1a95aad283c04e075671 | f0ea7f239f765aedbde7c9e163a7cb38a79c5b8853d3f76db5152172047b228c | Apache-2.0 |
+| n8n-mcp | npm | https://www.npmjs.com/package/n8n-mcp (repository https://github.com/czlonkowski/n8n-mcp). Pinned with `vendor/n8n-mcp/package-lock.json`. Installed by `scripts/n8n-mcp-install.sh` with scripts off | 2.102.0, with `@modelcontextprotocol/sdk` overridden to 1.32.2 | 3703e9743965a894a490af14906600ab68f340a2b3b0ad0c2c0507eda6e71e4a (tarball). npm integrity sha512-ODC0ffkR4RlsQjvViQI+pbY1UknG/gqd0cNb6VqVslQ71Ax28Rvr0WDZEha63MLYvaqDpTq8tqzClV23p7TXNQ== | MIT |
 | playwright-mcp | npm | https://registry.npmjs.org/@playwright/mcp | 0.0.83 (playwright-core 1.64.0-alpha-1790635538000) | see vendor/playwright-mcp/package-lock.json | Apache-2.0 |
 | cisco-ai-mcp-scanner | pypi | https://github.com/cisco-ai-defense/mcp-scanner | 4.8.7 | hashes in vendor/gate-mcpscan-requirements.txt | Apache-2.0 |
 | cisco-ai-skill-scanner | pypi | https://github.com/cisco-ai-defense/skill-scanner | 2.3.2 | hashes in vendor/gate-skillscan-requirements.txt | Apache-2.0 |
 | crawl4ai | pypi | https://pypi.org/project/crawl4ai/ | 0.9.5 | see vendor/reader-requirements.txt | Apache-2.0 |
 | evolve-python-packages | pypi | https://pypi.org | see vendor/evolve-requirements.txt | a hash for each package in that file | various, see each package |
 | gate-test-packages | pypi | https://pypi.org | see vendor/gate-test-requirements.txt | hashes in vendor/gate-test-requirements.txt | MIT (pytest, jsonschema, PyYAML) |
+| guarddog | pypi | https://pypi.org/project/guarddog/ (a scan tool, run once from a throwaway venv, not installed in the fleet) | 3.2.0 | see PyPI | Apache-2.0 |
 | numpy | pypi | https://pypi.org/project/numpy/ | 2.5.4 | see vendor/guard-requirements.txt | see PyPI |
 | onnxruntime | pypi | https://pypi.org/project/onnxruntime/ | 1.31.1 | see vendor/guard-requirements.txt | see PyPI |
 | semgrep | pypi | https://pypi.org/project/semgrep/ | 1.185.0 | hashes in vendor/gate-semgrep-requirements.txt | LGPL-2.1-or-later |
+| slack-bolt | pypi | https://pypi.org/project/slack-bolt/ | 1.30.0 | see vendor/control-requirements.txt | MIT |
+| slack-sdk | pypi | https://pypi.org/project/slack-sdk/ | 3.46.0 | see vendor/control-requirements.txt | MIT |
 | tokenizers | pypi | https://pypi.org/project/tokenizers/ | 0.23.3 | see vendor/guard-requirements.txt | see PyPI |

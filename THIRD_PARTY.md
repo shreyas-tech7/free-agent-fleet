@@ -5,6 +5,7 @@ The list comes from `vendor/LOCK.md`, which records every install with its sourc
 
 Some licenses need your attention:
 
+- Sustainable Use License (n8n): internal business use only. Do not offer n8n to others as a hosted service. Paid enterprise features stay off.
 - AGPL: run it as a separate service. Do not copy its code into this project.
 - GPL: run it as a separate tool. Do not copy its code into this project.
 
@@ -28,6 +29,7 @@ Some licenses need your attention:
 | docker-ce-rootless-extras | apt | https://download.docker.com/linux | 5:29.9.3-1~debian.13~trixie | see copyright file |
 | evolve-python-packages | pypi | https://pypi.org | see vendor/evolve-requirements.txt | various, see each package |
 | file | apt | Debian or Ubuntu archive | 1:5.46-5 | BSD-2-Clause-alike, public-domain, BSD-2-Clause-netbsd |
+| gate-base | docker | docker.io/python:3.13-slim-trixie | python:3.13-slim-trixie@sha256:e48f59cdb | PSF-2.0 and others (Python official image) |
 | gate-test-packages | pypi | https://pypi.org | see vendor/gate-test-requirements.txt | MIT (pytest, jsonschema, PyYAML) |
 | gh | apt | Debian or Ubuntu archive | 2.46.0-3 | Expat, BSD-3-Clause |
 | git | apt | Debian or Ubuntu archive | 1:2.47.3-0+deb13u1 | GPL-2, BSD-3-clause, Zlib |
@@ -41,6 +43,7 @@ Some licenses need your attention:
 | jq | apt | Debian or Ubuntu archive | 1.7.1-6+deb13u4 | MIT, CC-BY-3.0, Expat |
 | libatomic1 | apt | Debian or Ubuntu archive | 14.2.0-19 | see copyright file |
 | marketingskills-skills | git | https://github.com/coreyhaines31/marketingskills | 1f837447b20bb6f0e72d87b80ece1c221c362c7d | MIT |
+| n8n | docker | docker.n8n.io/n8nio/n8n | 2.47.4 | Sustainable Use License |
 | n8n-mcp | npm | https://www.npmjs.com/package/n8n-mcp | 2.102.0, with `@modelcontextprotocol/sdk | MIT |
 | n8n-skills | git | https://github.com/czlonkowski/n8n-skills | v1.37.1 e037563e101749e630e6688d121d0452 | MIT |
 | netcat-openbsd | apt | Debian or Ubuntu archive | 1.229-1 | BSD-3-Clause, BSD-2-Clause |
@@ -63,6 +66,8 @@ Some licenses need your attention:
 | searxng | docker | docker.io/searxng/searxng | searxng/searxng@sha256:0b104e2e1117b0ca8 | AGPL-3.0 |
 | semgrep | pypi | https://pypi.org/project/semgrep/ | 1.185.0 | LGPL-2.1-or-later |
 | semgrep-rules | git | https://github.com/semgrep/semgrep-rules | a5ad1714f00c9f7fde980cab0ea1d6dc6d414fd2 | Semgrep Rules License v1.0 (not redistributed in this repository) |
+| slack-bolt | pypi | https://pypi.org/project/slack-bolt/ | 1.30.0 | MIT |
+| slack-sdk | pypi | https://pypi.org/project/slack-sdk/ | 3.46.0 | MIT |
 | slirp4netns | apt | Debian or Ubuntu archive | 1.2.1-1.1 | GPL-2+, GPL-2, LGPL-2.1 |
 | sqlite3 | apt | Debian or Ubuntu archive | 3.46.1-7+deb13u2 | public-domain, GPL-2+ |
 | superpowers-skills | git | https://github.com/obra/superpowers | 22f0b463e7a5e579904dd6211a520321035526f7 | MIT |

@@ -27,7 +27,7 @@ class SlackBot:
         ack()                                                       # Slack wants an answer within 3 seconds
         reply = self.fc.handle(command.get("user_id", ""), command.get("text", ""))
         if reply is None:
-            LOG.warn("ignored_command")                             # not the owner. Never answer.
+            LOG.warn("ignored_command", user=str(command.get("user_id", ""))[:16])   # not the owner. Never answer.
             return
         respond(**reply)
 

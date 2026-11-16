@@ -78,8 +78,16 @@ def valid(record):
     return {"agent": agent, "title": title, "body": body, "board": board}
 
 
+def load_config():
+    """The user `fleet` cannot read /etc/agent-fleet/fleet.yaml, on purpose. The ingester needs only the guard port, so the defaults do. See D-070."""
+    try:
+        return config.load()
+    except config.ConfigError:
+        return config.defaults()
+
+
 def run_once(cfg=None, folder=None, scanner=None, create=kanban_create, now=time.time, emit=events.emit):
-    cfg = cfg or config.load()
+    cfg = cfg or load_config()
     folder = pathlib.Path(folder or inbox())
     scanner = scanner or (lambda text: scan(cfg, text))
     bad = folder / "bad"
@@ -129,9 +137,13 @@ def run_once(cfg=None, folder=None, scanner=None, create=kanban_create, now=time
 
 
 def main():
-    counts = run_once()
+    try:
+        counts = run_once()
+    except Exception as exc:      # one bad run must not kill the path unit. A failed start with a file waiting loops until the start limit.
+        LOG.warn("card_ingest_failed", error=type(exc).__name__)
+        counts = {"error": type(exc).__name__}
     print(json.dumps(counts, sort_keys=True))
-    return 0
+    return 0                       # exit 0, so that the 15 second pause of the unit still applies
 
 
 if __name__ == "__main__":

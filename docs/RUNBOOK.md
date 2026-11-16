@@ -77,8 +77,13 @@ The orchestrator pivots by itself when a gate is missed twice. It writes a reque
 
 ```bash
 cd ~/agent-fleet && git pull          # in the clone that you installed from
-fleetctl update                       # the new code goes through the merger gates
+./fleetctl test                       # all stages. The gate stage only collects tests
+scripts/semgrep-local                 # the same rules as gate G2
+git pull --rebase /opt/agent-fleet/repo main   # the live copy gets merge commits that the clone lacks
+fleetctl update                       # the new code goes through the merger gates. It asks for your sudo password
 ```
+
+Run `fleetctl pause` before the update and `fleetctl resume` after it. A deploy takes about 12 minutes.
 
 The update passes the same gates as an agent change, except gate G3. G3 protects the locked core from agents. You are the owner, so you may change it. If a gate fails, nothing changes. If the health check fails, the merger rolls back.
 

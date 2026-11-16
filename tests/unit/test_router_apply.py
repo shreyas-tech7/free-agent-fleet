@@ -314,3 +314,57 @@ def test_only_free_openrouter_models_ever_reach_a_combo(setup):
         for m in combo["models"]:
             if m["model"].startswith("openrouter/"):
                 assert m["model"].endswith(":free"), m["model"]
+
+
+# ------------------------------------------------------------------ LLM7, Aion, and Gonka: custom nodes, free only (D-069)
+LLM7_KEY = "llm7-" + "A1b2C3d4E5" * 3
+
+
+def test_llm7_is_a_custom_node_with_a_connection_and_late_fallback_targets(setup):
+    fleet_env, fake, router = setup
+    approve("llm7")
+    secrets.set_value("LLM7_API_KEY", LLM7_KEY)
+    report = run(router, fleet_env)
+    assert report["providers"] == {"llm7": "created"}
+    assert [n["prefix"] for n in fake.nodes] == ["llm7"] and fake.providers[0]["provider"] == fake.nodes[0]["id"]
+    worker = next(c for c in fake.combos if c["name"] == "fleet-worker")
+    assert any(m["model"].startswith("llm7/") for m in worker["models"])
+    assert run(router, fleet_env)["providers"] == {"llm7": "kept"} and len(fake.nodes) == 1       # a second run makes nothing new
+
+
+def test_a_node_provider_without_approval_or_key_makes_no_node(setup):
+    fleet_env, fake, router = setup
+    secrets.set_value("LLM7_API_KEY", LLM7_KEY)
+    assert run(router, fleet_env)["providers"] == {} and fake.nodes == []        # not approved
+    approve("llm7")
+    secrets.set_value("LLM7_API_KEY", "x" * 20)
+    config.set_override("router.approved_providers", "[aion]")
+    assert run(router, fleet_env)["providers"] == {}                              # approved aion has no key
+
+
+def test_losing_approval_removes_the_connection_of_a_node_provider(setup):
+    fleet_env, fake, router = setup
+    approve("llm7")
+    secrets.set_value("LLM7_API_KEY", LLM7_KEY)
+    run(router, fleet_env)
+    config.set_override("router.approved_providers", "[]")
+    assert run(router, fleet_env)["providers"] == {"llm7": "removed"} and fake.providers == []
+
+
+def test_every_new_target_is_free_by_the_rule_of_the_code():
+    from ops.router import freeonly
+    assert freeonly.is_free("llm7/gpt-oss:20b") and freeonly.is_free("aion/aion-labs/aion-3.5-mini")
+    assert freeonly.is_free("gonka/zai-org/GLM-5.3-Flash")        # a grant provider. The owner holds no balance. See D-072.
+    assert not freeonly.is_free("llm7/gpt-5.4")                  # a pro model needs a paid balance
+
+
+def test_gonka_is_a_custom_node_that_needs_a_key_and_an_approval(setup):
+    """Gonka joins the router as LLM7 did. Its host is the one URL that the locked policy test allows. See D-072."""
+    fleet_env, fake, router = setup
+    secrets.set_value("GONKA_API_KEY", "gonka-" + "A1b2C3d4E5" * 3)
+    assert run(router, fleet_env)["providers"] == {} and fake.nodes == []             # a key without approval does nothing
+    approve("gonka")
+    assert run(router, fleet_env)["providers"] == {"gonka": "created"}
+    assert [n["prefix"] for n in fake.nodes] == ["gonka"] and fake.nodes[0]["baseUrl"] == "https://proxy.gonkabroker.com/v1"
+    worker = next(c for c in fake.combos if c["name"] == "fleet-worker")
+    assert any(m["model"].startswith("gonka/") for m in worker["models"])

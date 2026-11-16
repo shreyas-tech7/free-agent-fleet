@@ -42,13 +42,13 @@ class HqClient:
     def __init__(self, cfg, api):
         self.cfg, self.api = cfg, api
 
-    def post(self, channel, text, agent="", severity="info"):
+    def post(self, channel, text, agent="", severity="info", blocks=None):
         channel_id = config.get(self.cfg, "slack.channels.%s" % channel, "")
         if not channel_id:
             raise SlackError("the channel %s has no ID yet. Run: fleetctl slack bootstrap" % channel)
         icon = slackviews.SEVERITY_ICON.get(severity, "") if severity != "info" else ""
         who = slackviews.identity(agent)
-        self.api.post(channel_id, ("%s %s" % (icon, text)).strip(), username=who.get("username"), icon_emoji=who.get("icon_emoji"))
+        self.api.post(channel_id, ("%s %s" % (icon, text)).strip(), blocks=blocks, username=who.get("username"), icon_emoji=who.get("icon_emoji"))
 
 
 def build_client(cfg, request=None):
@@ -67,7 +67,8 @@ class SlackOut:
     def sink_mode(self):
         return bool(config.get(self.cfg, "slack.sink_mode", True)) or self.client is None
 
-    def post(self, channel, text, agent="", severity="info"):
+    def post(self, channel, text, agent="", severity="info", blocks=None):
+        """`blocks` is for a card with buttons. The text stays as the notification and as the sink line. See D-068."""
         channel, text, agent, severity = validate(channel, text, agent, severity)
         if hold.active():                      # a selftest holds owner messages. See D-043.
             hold.record("slack:" + channel, text, now=self.clock())
@@ -79,7 +80,10 @@ class SlackOut:
             self._sink(channel, text, agent, severity)
             return {"ok": True, "mode": "sink"}
         try:
-            self.client.post(channel, text, agent, severity)
+            if blocks:
+                self.client.post(channel, text, agent, severity, blocks=blocks)
+            else:
+                self.client.post(channel, text, agent, severity)
         except (slackapi.SlackApiError, SlackError) as exc:     # a failed post must not lose the message
             LOG.warn("slack_post_failed", error=str(getattr(exc, "error", exc))[:60])
             self._sink(channel, text, agent, severity)

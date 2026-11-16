@@ -113,7 +113,7 @@ def test_kanban_checks_the_task_settings(fleet_env):
 
 def test_keys_report_waiting_then_ok(fleet_env):
     results = by_name(doctor.check_secrets(ctx(fleet_env)))
-    assert results["keys_router"].status == WAITING and results["keys_router"].detail == "0 of 7 set"
+    assert results["keys_router"].status == WAITING and results["keys_router"].detail == "0 of 10 set"
     assert results["keys_internal"].status == FAIL                     # the installer did not make them in this fake machine
     secrets.set_value("GROQ_API_KEY", "gsk_" + "A1b2C3d4E5" * 3)
     assert by_name(doctor.check_secrets(ctx(fleet_env)))["keys_router"].status == OK

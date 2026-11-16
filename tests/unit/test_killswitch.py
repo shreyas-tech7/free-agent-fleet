@@ -116,7 +116,7 @@ def test_hook_script_blocks_only_while_flag_exists(tmp_path):
     script.chmod(0o755)
 
     def run():
-        out = subprocess.run([str(script)], input="{}", capture_output=True, text=True, timeout=10)
+        out = subprocess.run([str(script)], input="{}", capture_output=True, text=True, timeout=10)  # nosemgrep: dangerous-subprocess-use-audit
         assert out.returncode == 0
         return json.loads(out.stdout)
 
@@ -140,7 +140,7 @@ def test_the_hook_adds_a_budget_reminder_only_while_the_budget_says_slowdown(tmp
     script = hook_in(tmp_path)
 
     def run():
-        out = subprocess.run([str(script)], input="{}", capture_output=True, text=True, timeout=10)
+        out = subprocess.run([str(script)], input="{}", capture_output=True, text=True, timeout=10)  # nosemgrep: dangerous-subprocess-use-audit
         return json.loads(out.stdout)
     (tmp_path / "budget.json").write_text(json.dumps({"slowdown": False, "hot": []}))
     assert run() == {}

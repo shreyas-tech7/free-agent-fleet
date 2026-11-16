@@ -280,3 +280,22 @@ def test_an_approval_id_cannot_be_a_path(tmp_path):
     for bad in ("../x", "a12", "A00000", "a0000g", ""):
         with pytest.raises(approvals.ApprovalError):
             approvals.get(bad, base=tmp_path)
+
+
+def test_an_approval_card_in_slack_carries_the_buttons_and_only_the_id(env):
+    """The #approvals post needs Approve and Reject buttons. Found on the first live Slack run. See D-068."""
+    class Client:
+        def __init__(self):
+            self.posts = []
+
+        def post(self, channel, text, agent="", severity="info", blocks=None):
+            self.posts.append((channel, text, blocks))
+
+    client = Client()
+    env["api"].slack = slackout.SlackOut(cfg(slack={"sink_mode": False}), client=client, clock=env["clock"], sink_file=env["tmp"] / "live.jsonl")
+    out = call(env, ("POST", "/v1/approvals"), {"kind": "spec", "ref": "slack-test", "summary": "Slack button test. Click Reject."})[1]
+    channel, text, blocks = client.posts[0]
+    assert channel == "approvals" and out["id"] in text
+    buttons = next(b for b in blocks if b["type"] == "actions")["elements"]
+    assert [(b["action_id"], b["value"]) for b in buttons] == [("fleet_approve", out["id"]), ("fleet_reject", out["id"])]
+    assert not (env["tmp"] / "live.jsonl").exists()                        # it went to Slack and not to the sink

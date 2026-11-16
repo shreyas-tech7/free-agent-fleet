@@ -3,7 +3,11 @@
 A combo target is free only when its provider has a free tier that needs no card, and its model is not a paid variant.
 Everything else is refused. `apply` drops a refused target and says so. A policy test checks every target in config/router/combos.yaml.
 """
-FREE_TIER_PROVIDERS = frozenset({"gemini", "groq", "cloudflare-ai", "openrouter", "nvidia", "cohere", "ollama"})
+FREE_TIER_PROVIDERS = frozenset({"gemini", "groq", "cloudflare-ai", "openrouter", "nvidia", "cohere", "ollama", "llm7", "aion", "gonka"})
+# LLM7 gives free tokens for its `turbo` tier only. Its `pro` tier needs a subscription or a paid balance. See D-069.
+LLM7_TURBO = frozenset({"DeepSeek-V4-Flash-0731", "codestral-latest", "glm-5.3-flash", "gpt-oss:20b", "minimax-m2.7", "mistral-Nemo-Instruct-2407"})
+# Aion and Gonka price every model per token. Their free access is an account grant, and no balance means no charge.
+# The owner confirmed that neither account holds a card or a balance, and must never add money. `fleetctl secret check` reports a 402 as "no free credit". See D-069 and D-072.
 # OpenRouter route suffixes that bill the request. Only ":free" is free.
 PAID_SUFFIXES = (":nitro", ":floor", ":online", ":extended", ":thinking", ":beta")
 
@@ -26,6 +30,8 @@ def refusal(target):
         return "provider %s is not on the free-tier list" % provider
     if provider == "openrouter" and not model.endswith(":free"):
         return "an OpenRouter model must end with :free"
+    if provider == "llm7" and model not in LLM7_TURBO:
+        return "an LLM7 model must be on the free turbo list"
     if any(model.endswith(suffix) for suffix in PAID_SUFFIXES):
         return "the route suffix bills the request"
     return None
