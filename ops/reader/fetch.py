@@ -23,6 +23,7 @@ from .netguard import Blocked
 
 TEXT_TYPES = ("text/html", "application/xhtml+xml", "text/plain", "text/markdown")
 REDIRECT_CODES = (301, 302, 303, 307, 308)
+READ_CHUNK = 65536
 
 
 class Fetched:
@@ -57,7 +58,8 @@ class _SConn(http.client.HTTPSConnection):
 class SafeFetcher:
     def __init__(self, user_agent="agent-fleet-reader/0.1", denylist=(), allow_private=False,
                  resolver=socket.getaddrinfo, timeout=15, max_bytes=2_000_000, max_redirects=5,
-                 robots_ttl=3600, host_delay=2.0, clock=time.monotonic, sleep=time.sleep):
+                 robots_ttl=3600, host_delay=2.0, clock=time.monotonic, sleep=time.sleep, total_timeout=60):
+        self.total_timeout = total_timeout
         self.user_agent = user_agent
         self.token = user_agent.split("/")[0].strip().lower()
         self.denylist = set(denylist)
@@ -82,6 +84,7 @@ class SafeFetcher:
         if wait > 0:
             self.sleep(min(wait, delay))
         last_error = None
+        started = self.clock()
         for ip in ips[:3]:
             cls = _SConn if scheme == "https" else _Conn
             conn = cls(host, port, ip, self.timeout)
@@ -90,7 +93,7 @@ class SafeFetcher:
                     "User-Agent": self.user_agent, "Accept": accept,
                     "Accept-Encoding": "identity", "Connection": "close"})
                 resp = conn.getresponse()
-                body = resp.read(self.max_bytes + 1)
+                body = self._read_body(resp, started)
                 truncated = len(body) > self.max_bytes
                 self._last[host] = self.clock()
                 return resp.status, {k.lower(): v for k, v in resp.getheaders()}, body[:self.max_bytes], truncated
@@ -99,6 +102,23 @@ class SafeFetcher:
             finally:
                 conn.close()
         raise Blocked("network_error", type(last_error).__name__)
+
+    def _read_body(self, resp, started):
+        """Read at most max_bytes + 1 bytes, in pieces, inside the total time limit.
+
+        The socket timeout limits one read. A server that sends one byte every few seconds would pass it for hours
+        and hold one of the two reader slots. The total limit stops that.
+        """
+        chunks, size = [], 0
+        while size <= self.max_bytes:
+            if self.clock() - started > self.total_timeout:
+                raise Blocked("timeout", "the page took longer than %d seconds" % self.total_timeout)
+            piece = resp.read(min(READ_CHUNK, self.max_bytes + 1 - size))
+            if not piece:
+                break
+            chunks.append(piece)
+            size += len(piece)
+        return b"".join(chunks)
 
     # ---- robots.txt ----
     def _robots_for(self, scheme, host, port):

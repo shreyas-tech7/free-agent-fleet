@@ -3,7 +3,7 @@ description: "Builds the studio brand kit, writes landing copy, articles, and la
 model: fleet-worker
 toolsets: [web, memory, skills, file, terminal]
 disabled_toolsets: [browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
-skills: [humanizer, product-marketing, copywriting, copy-editing, launch, content-strategy, seo-audit, programmatic-seo, schema, social, community-marketing, marketing-ideas, free-tools, cro, pricing, customer-research, house-style]
+skills: [humanizer, product-marketing, copywriting, copy-editing, launch, content-strategy, seo-audit, programmatic-seo, schema, social, community-marketing, marketing-ideas, free-tools, cro, pricing, customer-research, house-style, competitors, signup]
 mcp_servers:
   fleet_tools:
     tools: [publish_post, web_read, guard_scan, source_search]

@@ -65,8 +65,8 @@ def prepare_run(run_dir, tree_exporter, hidden_dir, entry_file, job, owner="flee
     for sub in ("src", "hidden", "gate"):
         (run_dir / sub).mkdir(parents=True, exist_ok=True)
     tree_exporter(run_dir / "src")
-    hidden = pathlib.Path(hidden_dir)
-    if hidden.is_dir():
+    hidden = pathlib.Path(hidden_dir) if hidden_dir else None        # None: this run gets no hidden tests
+    if hidden is not None and hidden.is_dir():
         for f in hidden.glob("*.py"):                       # the seed file stays behind
             shutil.copyfile(f, run_dir / "hidden" / f.name)
             os.chmod(run_dir / "hidden" / f.name, 0o444)
@@ -98,6 +98,39 @@ def run_gates(run_dir, image_id, rules_dir, osv_dir, timeout=2400, runner=subpro
 
 def cleanup(run_dir):
     shutil.rmtree(run_dir, ignore_errors=True)
+
+
+TRUSTED_GATES = ("G1", "G2", "G4")
+
+
+def changed_projects(changed):
+    """The project folders that a change touches. Their tests are agent code and run in the second phase."""
+    from ops.merger import gate_entry
+    return gate_entry.project_dirs(changed)
+
+
+def trusted_passed(result):
+    return all(bool((result.get(g) or {}).get("ok")) for g in TRUSTED_GATES)
+
+
+def merge_phases(trusted, projects):
+    """Join the two phases into one result. Only the key "P" is read from the second phase.
+
+    The second container runs agent code. Whatever else it prints is ignored, so it cannot change G1, G2, or G4.
+    A missing or failed "P" fails G1, because the tests of a changed project are part of G1.
+    """
+    out = {g: dict(trusted.get(g) or {"ok": False, "detail": "no result"}) for g in TRUSTED_GATES}
+    out["seconds"] = trusted.get("seconds", 0)
+    if projects is None:
+        return out
+    part = projects.get("P") if isinstance(projects, dict) else None
+    ok = isinstance(part, dict) and part.get("ok") is True
+    detail = str(part.get("detail", ""))[:1200] if isinstance(part, dict) else "the project test run gave no result"
+    out["G1"]["ok"] = bool(out["G1"].get("ok")) and ok
+    out["G1"]["detail"] = ("%s; project tests: %s" % (out["G1"].get("detail", ""), detail))[:2500]
+    if isinstance(projects, dict) and isinstance(projects.get("seconds"), (int, float)):
+        out["seconds"] += projects["seconds"]
+    return out
 
 
 def make_readable(osv_dir):

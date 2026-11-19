@@ -96,6 +96,7 @@ The agents run as Hermes profiles in a Docker sandbox. Plain-code services hold 
 - **Rule of Two.** No agent may read untrusted text, hold sensitive access, and take outside actions at the same time. A test enforces it.
 - **Owner approvals.** You approve each product spec, each release, each install, and each sync of this public repository.
 - **Install gate.** Every new skill or tool goes through owner and name checks, license checks, scanners, and a sandbox trial before it is pinned to a commit.
+- **Tool catalog.** `config/catalog.yaml` rates each outside tool as adopt, trial, watch, or reject. Agents never request a rejected tool, and a rating is never an approval.
 - **Locked core.** The rules, the policy tests, the kill switch, and the Hermes managed config are owned by root. The fleet cannot change them.
 - **Merger.** Every change from an agent passes tests, scanners, and policy gates in a throwaway container with no network. A failed health check rolls the change back.
 - **Kill switch.** `fleetctl pause`, `fleetctl stop`, and `fleetctl revoke-checklist`. The control bot lives outside the fleet, so `/stop` cannot stop it.
@@ -113,6 +114,7 @@ The agents run as Hermes profiles in a Docker sandbox. Plain-code services hold 
 | `fleetctl brief --now` | Make the daily brief now |
 | `fleetctl n8n selftest` | Test the workflow links, with owner messages held back |
 | `fleetctl update` | Bring new code in through the merger gates |
+| `fleetctl catalog list` | The rated list of outside tools and skill sources, with the reason for each rating |
 
 ## Documents
 

@@ -183,3 +183,28 @@ def test_block_scan_endpoint():
         assert call({"blocks": ["x"] * 1001})[0] == 400
     finally:
         srv.shutdown()
+
+
+def test_a_text_past_the_hard_limit_is_refused_and_the_model_never_sees_it():
+    """One huge text would hold the one model slot for minutes. Every caller treats an error as not safe. See F-05."""
+    class Counting(FakeClassifier):
+        calls = 0
+
+        def injection_score(self, text):
+            Counting.calls += 1
+            return 0.1
+    screen = server.Screen(0.9, classifier=Counting(0.1), hard_max_chars=2000)
+    scan = server.routes(screen)[("POST", "/scan")]
+
+    class Req:
+        def __init__(self, text):
+            self.text = text
+
+        def json(self):
+            return {"text": self.text}
+    assert scan(Req("a" * 2000))[0] == 200 and Counting.calls == 1
+    with pytest.raises(httpd.HttpError) as err:
+        scan(Req("a" * 2001))
+    assert err.value.status == 413 and Counting.calls == 1
+    assert server.Screen(0.9, hard_max_chars=5).hard_max_chars == 1000          # a tiny limit would block every post
+    assert server.Screen(0.9).hard_max_chars == server.HARD_MAX_CHARS >= 100000

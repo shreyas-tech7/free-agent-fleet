@@ -35,6 +35,19 @@ BAD_PATTERNS = [
 ]
 
 
+MIN_SKILL_BODY = 200          # characters of content that a SKILL.md needs after its header, spaces not counted
+
+
+def is_skill_main(path):
+    """skills/<name>/SKILL.md, the file that an agent loads first."""
+    return bool(re.match(r"skills/[^/]+/SKILL\.md$", path))
+
+
+def is_skill_extra(path):
+    """Any other Markdown file under skills/."""
+    return path.startswith("skills/") and path.endswith(".md") and not is_skill_main(path)
+
+
 def _soul_agent(path):
     m = re.match(r"agents/([^/]+)/SOUL\.md$", path)
     return m.group(1) if m else None
@@ -58,15 +71,26 @@ def score(path, text):
                 points += weight
             else:
                 failed.append(name)
-    elif path.startswith("skills/") and path.endswith(".md"):
+    elif is_skill_main(path):
         base = [("front matter", 20, r"\A---\n.*?\n---\n"), ("a name", 20, r"(?m)^name:\s*\S+"),
-                ("a description", 20, r"(?m)^description:\s*\S+"), ("some steps or content", 20, r"\S{20,}")]
+                ("a description", 20, r"(?m)^description:\s*\S+")]
         for name, weight, pattern in base:
             possible += weight
             if re.search(pattern, text, re.S):
                 points += weight
             else:
                 failed.append(name)
+        possible += 20
+        body = re.sub(r"\A---\n.*?\n---\n", "", text, count=1, flags=re.S)
+        if len(re.sub(r"\s", "", body)) >= MIN_SKILL_BODY:           # real content after the header, not one long word
+            points += 20
+        else:
+            failed.append("some steps or content")
+    elif is_skill_extra(path):
+        # A file that travels with a skill: the provenance record, a reference, a template, or an example. It has no header
+        # of its own, so the header checks do not apply. It must still hold no bad pattern. See D-075.
+        bad = [name for name, pattern in BAD_PATTERNS if re.search(pattern, text)]
+        return (0 if bad else 100), ["bad pattern: " + b for b in bad]
     else:
         return 100, []
     possible += 20

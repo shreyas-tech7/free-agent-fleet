@@ -350,3 +350,81 @@ def test_a_dry_run_post_is_never_blocked_by_a_missing_approval(tmp_path):
     pub, _ = make(tmp_path, cfg, http=http, approved=lambda kind, ref: False)
     out = pub.post(GOOD)
     assert out["status"] == "dry_run" and not http.calls
+
+
+# ---------------- Bluesky replies ----------------
+PARENT = "at://did:plc:cust/app.bsky.feed.post/3kparent"
+ROOT = "at://did:plc:cust/app.bsky.feed.post/3kroot"
+
+
+def reply_handler(found):
+    seen = {}
+
+    def handler(method, url, kw):
+        if url.endswith("createSession"):
+            return 200, {"accessJwt": "jwt-abc", "did": "did:plc:abc"}
+        if "app.bsky.feed.getPosts" in url:
+            seen["lookup"] = url
+            return 200, {"posts": found}
+        if "getRecord" in url:
+            return 200, {"value": {"$type": "app.bsky.actor.profile", "labels": {"values": [{"val": "bot"}]}}, "cid": "cid1"}
+        if url.endswith("createRecord"):
+            seen["record"] = kw["json_body"]["record"]
+            return 200, {"uri": "at://did:plc:abc/app.bsky.feed.post/9", "cid": "c9"}
+        return 404, {}
+    return handler, seen
+
+
+def live_reply(tmp_path, found):
+    handler, seen = reply_handler(found)
+    pub, http = make(tmp_path, live_cfg(), http=FakeHttp(handler), secret_values={"BLUESKY_APP_PASSWORD": "pw-test-1"})
+    write_faq(tmp_path, "The free plan has three projects.")
+    out = pub.reply({"platform": "bluesky", "in_reply_to": PARENT, "faq_id": "pricing", "project": "demo"})
+    return out, seen
+
+
+def test_a_live_bluesky_reply_to_a_top_post_names_that_post_as_root_and_parent(tmp_path):
+    """The old adapter called .get on the address string and crashed. Bluesky needs {uri, cid} for both. See F-03."""
+    out, seen = live_reply(tmp_path, [{"uri": PARENT, "cid": "cid-parent", "record": {"text": "is it free?"}}])
+    assert out["status"] == "sent"
+    assert "uris=at%3A%2F%2Fdid%3Aplc%3Acust%2Fapp.bsky.feed.post%2F3kparent" in seen["lookup"]
+    assert seen["record"]["reply"] == {"root": {"uri": PARENT, "cid": "cid-parent"}, "parent": {"uri": PARENT, "cid": "cid-parent"}}
+
+
+def test_a_live_bluesky_reply_inside_a_thread_keeps_the_thread_root(tmp_path):
+    found = [{"uri": PARENT, "cid": "cid-parent", "record": {"reply": {"root": {"uri": ROOT, "cid": "cid-root"}, "parent": {"uri": ROOT, "cid": "cid-root"}}}}]
+    out, seen = live_reply(tmp_path, found)
+    assert out["status"] == "sent"
+    assert seen["record"]["reply"] == {"root": {"uri": ROOT, "cid": "cid-root"}, "parent": {"uri": PARENT, "cid": "cid-parent"}}
+
+
+def test_a_bluesky_reply_to_a_missing_or_odd_post_is_blocked_and_nothing_is_sent(tmp_path):
+    out, seen = live_reply(tmp_path, [])
+    assert out["status"] == "blocked" and out["reason"] == "send_failed" and "record" not in seen
+    adapter = adp.Bluesky({"handle": "h"}, {"BLUESKY_APP_PASSWORD": "pw-test-1"}, FakeHttp(reply_handler([])[0]))
+    for bad in ("https://bsky.app/profile/x/post/1", "at://did:plc:x/app.bsky.feed.like/1", "", 7, {"uri": PARENT}):
+        with pytest.raises(adp.AdapterError):
+            adapter._reply_refs(bad)
+    ready = {"uri": PARENT, "cid": "c1", "root": {"uri": ROOT, "cid": "c0"}}
+    assert adapter._reply_refs(ready) == {"root": {"uri": ROOT, "cid": "c0"}, "parent": {"uri": PARENT, "cid": "c1"}}
+
+
+def test_two_posts_at_the_same_moment_cannot_both_pass_a_limit_of_one(tmp_path):
+    """The rate check ran before the lock. Two threads could both see an empty hour. See F-08."""
+    import threading
+    cfg = cfg_with(bluesky={"enabled": True, "rate": {"per_hour": 1, "per_day": 5}})
+    gate = threading.Barrier(2)
+
+    def slow_guard(text):
+        gate.wait(timeout=10)                    # both calls reach the rate step together
+        return {"label": "SAFE", "score": 0.01}
+    pub, _ = make(tmp_path, cfg, guard=slow_guard)
+    results = []
+    threads = [threading.Thread(target=lambda i=i: results.append(pub.post(dict(GOOD, text=GOOD["text"] + " %d" % i)))) for i in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=20)
+    assert sorted(r["status"] for r in results) == ["blocked", "dry_run"]
+    assert [r["reason"] for r in results if r["status"] == "blocked"] == ["rate_limited"]
+    assert len(list((tmp_path / "outbox").glob("*.json"))) == 1

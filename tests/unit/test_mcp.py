@@ -87,11 +87,12 @@ def test_inbox_tools_reject_bad_names(fleet_env):
 
 
 def test_stdio_round_trip():
-    proc = subprocess.run([sys.executable, "-m", "ops.mcp.server", "--tools", "guard_scan"],
+    # A fixed command line: this repository's own MCP server. No shell runs.
+    proc = subprocess.run([sys.executable, "-m", "ops.mcp.server", "--tools", "guard_scan"],  # nosemgrep: dangerous-subprocess-use-audit
                           input='{"jsonrpc":"2.0","id":1,"method":"tools/list"}\nnot json\n', capture_output=True, text=True, timeout=20)
     out = json.loads(proc.stdout.splitlines()[0])
     assert out["result"]["tools"][0]["name"] == "guard_scan"
-    bad = subprocess.run([sys.executable, "-m", "ops.mcp.server", "--tools", "nope"], capture_output=True, text=True, timeout=20)
+    bad = subprocess.run([sys.executable, "-m", "ops.mcp.server", "--tools", "nope"], capture_output=True, text=True, timeout=20)  # nosemgrep: dangerous-subprocess-use-audit
     assert bad.returncode == 2
 
 
@@ -223,3 +224,63 @@ def test_preview_tool_wraps_errors(tmp_path, monkeypatch):
     with pytest.raises(t.ToolError):
         t.preview_start({"project": "demo"})
     assert "preview_start" in t.TOOLS and "preview_stop" in t.TOOLS
+
+
+def test_reply_tool_sends_the_reply_token_and_not_the_post_token(monkeypatch):
+    """The Publisher checks /replies against PUBLISHER_REPLY_TOKEN. The feedback profile holds only that token."""
+    monkeypatch.setenv("PUBLISHER_REPLY_TOKEN", "reply-" + "r" * 40)
+    monkeypatch.setenv("PUBLISHER_API_TOKEN", "post-" + "p" * 40)
+    seen = {}
+
+    def fake(method, url, headers, body, timeout, max_bytes):
+        seen.update(url=url, headers=headers, body=body)
+        return httpc.Response(200, {}, b'{"status": "dry_run"}')
+    httpc.set_transport(fake)
+    try:
+        tools.reply_faq({"platform": "bluesky", "in_reply_to": "at://did:plc:abc/app.bsky.feed.post/3k", "faq_id": "price", "project": "demo"})
+    finally:
+        httpc.reset_transport()
+    assert seen["url"].endswith("/replies")
+    assert seen["headers"]["Authorization"] == "Bearer reply-" + "r" * 40
+    assert b"reply-" not in seen["body"] and b"post-" not in seen["body"]
+
+
+def test_every_agent_with_a_token_tool_gets_that_token():
+    """A tool that needs a local token is useless when the profile does not hold the token. See the audit finding F-12."""
+    import pathlib
+    import yaml
+    root = pathlib.Path(__file__).resolve().parents[2]
+    checked = 0
+    for path in sorted((root / "agents").glob("*/agent.yaml")):
+        spec = (yaml.safe_load(path.read_text()) or {}).get("mcp_servers", {}).get("fleet_tools") or {}
+        for tool in spec.get("tools") or []:
+            assert tool in tools.TOOLS, "%s names an unknown tool %s" % (path, tool)
+            if tool in tools.TOKEN_ENV:
+                assert tools.TOKEN_ENV[tool] in (spec.get("env_from_profile") or []), "%s has %s without %s" % (path, tool, tools.TOKEN_ENV[tool])
+                checked += 1
+    assert checked >= 3
+
+
+def test_ticket_list_shows_the_newest_tickets_first_and_filters_before_the_cut(fleet_env):
+    """With more than 200 tickets, the old code read only the 200 oldest files. New tickets were invisible. See F-13."""
+    folder = fleet_env["state"] / "tickets"
+    folder.mkdir(exist_ok=True)
+    for i in range(260):
+        status = "open" if i >= 255 else "fixed"
+        rec = {"id": "t-%d-%010x" % (1700000000 + i, i), "category": "bug", "severity": "low", "summary": "ticket %d" % i,
+               "evidence_link": "x", "user_hash": "u_0123456789ab", "status": status, "created": 1700000000 + i}
+        (folder / (rec["id"] + ".json")).write_text(json.dumps(rec))
+    from ops.mcp import tools as t
+    newest = t.ticket_list({})["tickets"]
+    assert len(newest) == 50 and newest[0]["summary"] == "ticket 259" and newest[-1]["summary"] == "ticket 210"
+    still_open = t.ticket_list({"status": "open"})["tickets"]
+    assert [x["summary"] for x in still_open] == ["ticket %d" % i for i in (259, 258, 257, 256, 255)]
+    assert len(t.ticket_list({"status": "fixed", "limit": 100000})["tickets"]) == t.TICKET_LIST_MAX
+    assert len(t.ticket_list({"limit": "many"})["tickets"]) == 50 and len(t.ticket_list({"limit": -4})["tickets"]) == 1
+
+
+def test_inbox_list_survives_a_bad_limit(fleet_env):
+    from ops.mcp import tools as t
+    (fleet_env["state"] / "inbox").mkdir(exist_ok=True)
+    (fleet_env["state"] / "inbox" / "f-1-aaaaaaaa.json").write_text("{}")
+    assert t.inbox_list({"limit": "x"})["items"] == ["f-1-aaaaaaaa.json"]

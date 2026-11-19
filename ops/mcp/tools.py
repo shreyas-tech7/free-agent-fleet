@@ -92,7 +92,7 @@ def inbox_list(args):
                 items.append(p.name)
     except OSError:
         pass
-    return {"items": items[:int(args.get("limit") or 50)]}
+    return {"items": items[:_limit(args, 50, 500)]}
 
 
 def inbox_ack(args):
@@ -151,6 +151,17 @@ def ticket_submit(args):
 
 
 TICKET_STATUSES = ("open", "in_progress", "fixed", "wontfix")
+TICKET_LIST_MAX = 200         # the most tickets in one answer
+TICKET_SCAN_MAX = 5000        # the most files that one call reads
+
+
+def _limit(args, default, most):
+    """A whole number from 1 to `most`. A bad value gives the default."""
+    try:
+        n = int(args.get("limit") or default)
+    except (TypeError, ValueError):
+        n = default
+    return max(1, min(n, most))
 
 
 def ticket_list(args):
@@ -158,12 +169,15 @@ def ticket_list(args):
     want = args.get("status")
     if want is not None and want not in TICKET_STATUSES:
         raise ToolError("status must be one of: %s" % ", ".join(TICKET_STATUSES))
+    limit = _limit(args, 50, TICKET_LIST_MAX)
     out = []
     try:
-        files = sorted(_tickets().glob("t-*.json"))
+        files = sorted(_tickets().glob("t-*.json"), reverse=True)      # the name starts with the time, so this is newest first
     except OSError:
         files = []
-    for path in files[:200]:
+    for path in files[:TICKET_SCAN_MAX]:
+        if len(out) >= limit:
+            break
         try:
             data = json.loads(path.read_text())
         except (OSError, ValueError):
@@ -171,7 +185,7 @@ def ticket_list(args):
         if not isinstance(data, dict) or (want and data.get("status") != want):
             continue
         out.append({k: data.get(k) for k in ("id", "category", "severity", "summary", "evidence_link", "user_hash", "status", "created", "note")})
-    return {"tickets": out[:int(args.get("limit") or 50)]}
+    return {"tickets": out}
 
 
 def ticket_update(args):
@@ -239,19 +253,25 @@ def approval_status(args):
     return {"kind": kind, "ref": ref, "status": status if status in ("pending", "approved", "rejected", "expired") else "none"}
 
 
+# The local token that each tool sends. The profile of an agent holds a token only when its agent.yaml lists the name
+# under env_from_profile. A test checks that every agent with one of these tools also gets its token.
+TOKEN_ENV = {"reply_faq": "PUBLISHER_REPLY_TOKEN", "publish_post": "PUBLISHER_API_TOKEN", "deploy_commit": "DEPLOYER_API_TOKEN"}
+
+
 def reply_faq(args):
-    token = os.environ.get("PUBLISHER_API_TOKEN", "")
+    # The Publisher checks /replies against PUBLISHER_REPLY_TOKEN. The feedback profile holds only that token.
+    token = os.environ.get(TOKEN_ENV["reply_faq"], "")
     return _post(PUBLISHER, "/replies", {k: args.get(k) for k in ("platform", "in_reply_to", "faq_id", "project")}, token)
 
 
 def publish_post(args):
-    token = os.environ.get("PUBLISHER_API_TOKEN", "")
+    token = os.environ.get(TOKEN_ENV["publish_post"], "")
     body = {k: args.get(k) for k in ("platform", "text", "media", "project", "evidence_ids", "title", "tags") if k in args}
     return _post(PUBLISHER, "/posts", body, token)
 
 
 def deploy_commit(args):
-    token = os.environ.get("DEPLOYER_API_TOKEN", "")
+    token = os.environ.get(TOKEN_ENV["deploy_commit"], "")
     return _post(DEPLOYER, "/deploy", {k: args.get(k) for k in ("project", "commit")}, token)
 
 

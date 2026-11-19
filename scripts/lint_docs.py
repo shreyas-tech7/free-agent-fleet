@@ -28,10 +28,24 @@ def doc_files():
     return seen
 
 
+def front_matter_end(lines):
+    """The number of the line that closes a YAML block at the top of the file, or 0. That block is data, not prose."""
+    if not lines or lines[0].strip() != "---":
+        return 0
+    for no, line in enumerate(lines[1:], 2):
+        if line.strip() == "---":
+            return no
+    return 0
+
+
 def prose_lines(text):
     in_fence = False
     in_comment = False
-    for no, line in enumerate(text.splitlines(), 1):
+    lines = text.splitlines()
+    skip = front_matter_end(lines)
+    for no, line in enumerate(lines, 1):
+        if no <= skip:
+            continue
         s = line.strip()
         if s.startswith("```"):
             in_fence = not in_fence

@@ -158,20 +158,21 @@ class Publisher:
                 return self._blocked(kind, req, text, "guard_unavailable")
             if scan.get("label") != "SAFE":
                 return self._blocked(kind, req, text, "injection", score=scan.get("score"))
-        ok, retry = self._rate_ok(platform, dry)
-        if not ok:
-            return self._blocked(kind, req, text, "rate_limited", retry_after=retry)
-        if dry:
-            self.outbox.mkdir(parents=True, exist_ok=True)
-            name = "%d-%s-%s.json" % (int(self.clock()), platform, hashlib.sha256(text.encode()).hexdigest()[:8])
-            jsonio.write_json(self.outbox / name, {"platform": platform, "project": req["project"], "kind": kind, "text": text,
-                                                   "title": title, "tags": tags, "reply_to": reply_to, "media": media,
-                                                   "checks": ["paused", "schema", "platform", "length", "honesty", "injection", "rate"]},
-                              mode=0o640)
-            self._rate_record(platform, True)
-            self._log(kind, req, text, "dry_run", ref=name)
-            return {"status": "dry_run", "outbox": name}
+        # One lock holds the rate check, the send, and the rate record. Two calls at the same moment cannot both pass a limit of one.
         with self.lock:
+            ok, retry = self._rate_ok(platform, dry)
+            if not ok:
+                return self._blocked(kind, req, text, "rate_limited", retry_after=retry)
+            if dry:
+                self.outbox.mkdir(parents=True, exist_ok=True)
+                name = "%d-%s-%s.json" % (int(self.clock()), platform, hashlib.sha256(text.encode()).hexdigest()[:8])
+                jsonio.write_json(self.outbox / name, {"platform": platform, "project": req["project"], "kind": kind, "text": text,
+                                                       "title": title, "tags": tags, "reply_to": reply_to, "media": media,
+                                                       "checks": ["paused", "schema", "platform", "length", "honesty", "injection", "rate"]},
+                                  mode=0o640)
+                self._rate_record(platform, True)
+                self._log(kind, req, text, "dry_run", ref=name)
+                return {"status": "dry_run", "outbox": name}
             if platform not in self._labeled:
                 try:
                     adapter.ensure_label()

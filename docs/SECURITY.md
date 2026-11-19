@@ -95,6 +95,7 @@ The service stores only a SHA-256 hash of each token.
 | NVIDIA_API_KEY | router | router | `/etc/agent-fleet/secrets/router.env` | fleetops, 600 |
 | LLM7_API_KEY | router | router | `/etc/agent-fleet/secrets/router.env` | fleetops, 600 |
 | AION_API_KEY | router | router | `/etc/agent-fleet/secrets/router.env` | fleetops, 600 |
+| GONKA_API_KEY | router | router | `/etc/agent-fleet/secrets/router.env` | fleetops, 600 |
 | BLUESKY_APP_PASSWORD | publisher | publisher | `/etc/agent-fleet/secrets/publisher.env` | fleetops, 600 |
 | MASTODON_ACCESS_TOKEN | publisher | publisher | `/etc/agent-fleet/secrets/publisher.env` | fleetops, 600 |
 | DISCORD_PUBLISHER_BOT_TOKEN | publisher | publisher | `/etc/agent-fleet/secrets/publisher.env` | fleetops, 600 |

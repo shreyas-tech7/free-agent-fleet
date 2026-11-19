@@ -4,6 +4,10 @@
 # Usage: scripts/semgrep-local [REF]     REF defaults to the live copy HEAD (origin of the deploy)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Passwordless sudo is gone since Prompt 4. Without it, use the scanner in your home folder. See scripts/gate-local.
+if ! sudo -n true 2>/dev/null; then
+  exec scripts/gate-local semgrep "${1:-}"
+fi
 # The live copy has merge commits that this clone lacks. Fetch it as a reference, so the diff shows what the gate will see.
 git fetch -q /opt/agent-fleet/repo main:refs/remotes/live/main 2>/dev/null || true
 ref="${1:-refs/remotes/live/main}"

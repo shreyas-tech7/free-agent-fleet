@@ -3,7 +3,7 @@ description: "Runs the business loop. Decides niche, product, price, and channel
 model: fleet-smart
 toolsets: [kanban, memory, skills, file, terminal]
 disabled_toolsets: [web, search, browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
-skills: [humanizer, house-style]
+skills: [humanizer, house-style, caveman]
 mcp_servers:
   fleet_tools:
     tools: [ticket_list, ticket_update, approval_status]

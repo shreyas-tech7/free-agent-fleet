@@ -3,7 +3,7 @@ description: "Runs the skill install pipeline, reads the weekly red-team report,
 model: fleet-worker
 toolsets: [terminal, file, memory, skills]
 disabled_toolsets: [web, search, browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
-skills: [humanizer, systematic-debugging, house-style]
+skills: [humanizer, systematic-debugging, house-style, security-review, caveman]
 mcp_servers:
   fleet_tools:
     tools: [web_read, guard_scan, source_search, approval_status]

@@ -108,3 +108,30 @@ def test_httpc_does_not_follow_redirects():
         assert r.status == 302
     finally:
         s.shutdown()
+
+
+def raw_request(server, head):
+    import socket
+    with socket.create_connection(("127.0.0.1", server.port), timeout=5) as sock:
+        sock.sendall(head.encode())
+        sock.settimeout(5)
+        return sock.recv(4096).decode()
+
+
+def test_a_bad_content_length_is_refused_at_once():
+    """A negative length made the server read until the end of the stream, so the request hung. See F-06."""
+    s = make_server()
+    try:
+        for value in ("-1", "-999", "ten"):
+            answer = raw_request(s, "POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: %s\r\n\r\n" % value)
+            assert answer.startswith("HTTP/1.0 400") or answer.startswith("HTTP/1.1 400")
+    finally:
+        s.shutdown()
+
+
+def test_the_handler_has_a_socket_timeout():
+    s = make_server()
+    try:
+        assert s.httpd.RequestHandlerClass.timeout == httpd.SOCKET_TIMEOUT and 5 <= httpd.SOCKET_TIMEOUT <= 120
+    finally:
+        s.shutdown()

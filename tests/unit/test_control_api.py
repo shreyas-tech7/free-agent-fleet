@@ -299,3 +299,14 @@ def test_an_approval_card_in_slack_carries_the_buttons_and_only_the_id(env):
     buttons = next(b for b in blocks if b["type"] == "actions")["elements"]
     assert [(b["action_id"], b["value"]) for b in buttons] == [("fleet_approve", out["id"]), ("fleet_reject", out["id"])]
     assert not (env["tmp"] / "live.jsonl").exists()                        # it went to Slack and not to the sink
+
+
+def test_the_owner_sees_the_item_of_an_approval_and_not_only_the_summary(env):
+    """An agent writes the summary. The kind and the item come from checked fields, so the owner sees what the yes covers. See F-11."""
+    body = {"kind": "release", "ref": "project-001@abc1234567", "summary": "Small copy fix on the page", "requester": "build"}
+    assert call(env, ("POST", "/v1/approvals"), body)[0] == 202
+    text = env["sent"][0]
+    assert "Kind: release" in text and "Item: project-001@abc1234567" in text and "Summary: Small copy fix" in text
+    assert text.index("Item:") < text.index("Summary:")
+    posted = json.loads((env["tmp"] / "sink.jsonl").read_text().splitlines()[0])
+    assert "project-001@abc1234567" in posted["text"]

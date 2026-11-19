@@ -200,10 +200,12 @@ class Api:
                                       _string(body, "requester", 32, required=False), now=self.clock(), base=self.approvals_dir)
         except approvals.ApprovalError as exc:
             raise httpd.HttpError(400, str(exc)) from None
-        self.notify("Approval %s needed (%s): %s\nReply /approve %s or /reject %s" % (record["id"], record["kind"], record["summary"], record["id"], record["id"]))
+        # The kind and the reference come from checked fields. The summary is free text from the requester, so it comes last.
+        self.notify("Approval %s needed. Kind: %s. Item: %s\nSummary: %s\nReply /approve %s or /reject %s"
+                    % (record["id"], record["kind"], record["ref"], record["summary"], record["id"], record["id"]))
         try:
             card = dict(record, summary=redact.redact_text(record["summary"]))      # the buttons carry only the approval ID
-            self.slack.post("approvals", "Approval %s (%s): %s" % (record["id"], record["kind"], record["summary"]), severity="info",
+            self.slack.post("approvals", "Approval %s (%s %s): %s" % (record["id"], record["kind"], record["ref"], record["summary"]), severity="info",
                             blocks=slackviews.approval_blocks(card))
         except slackout.SlackError:
             pass

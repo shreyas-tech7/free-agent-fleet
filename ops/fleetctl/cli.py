@@ -10,7 +10,7 @@ VERSION = "0.1.0"
 INSTALLED = "/usr/local/bin/fleetctl"
 
 # Commands that run without root.
-NO_ROOT = {"test", "version", "public", None}
+NO_ROOT = {"test", "version", "public", "catalog", None}
 
 
 def build_parser():
@@ -159,6 +159,13 @@ def build_parser():
     s.add_argument("--ref", default="main")
     s.add_argument("--no-install", action="store_true", help="do not run the installer steps after the deploy")
     sub.add_parser("revoke-checklist", help="REVOKE: print every key and grant with its revoke page")
+    ct = sub.add_parser("catalog", help="the tool catalog: each outside tool with its rating. It needs no root")
+    ctsub = ct.add_subparsers(dest="catalog_command", metavar="ACTION")
+    s = ctsub.add_parser("list", help="list the entries")
+    s.add_argument("--rating", choices=["adopt", "trial", "watch", "reject"])
+    s = ctsub.add_parser("show", help="show one entry by its name or its source address")
+    s.add_argument("name")
+    ctsub.add_parser("check", help="validate config/catalog.yaml")
     sub.add_parser("setup", help="guided steps for the human parts (keys, bots, mail)")
     return p
 
@@ -248,6 +255,9 @@ def dispatch(args, console, runner=system.run):
     if c == "portfolio":
         from ops.fleetctl import portfoliocmd
         return portfoliocmd.dispatch(args, console, runner)
+    if c == "catalog":
+        from ops.fleetctl import catalogcmd
+        return catalogcmd.dispatch(args, console, runner)
     if c == "router":
         if args.router_command == "apply":
             return secretcmd.cmd_router_apply(args, console, runner)
@@ -279,6 +289,14 @@ def main(argv=None, console=None, runner=system.run):
         console.say("")
         console.say("Stopped.")
         return 130
+    except BrokenPipeError:
+        # The reader went away, as in `fleetctl logs gateway | head`. That is not an error. Point stdout at /dev/null,
+        # so the flush at exit does not print a second trace.
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except (OSError, ValueError, AttributeError):
+            pass
+        return 0
     except Exception as exc:                          # a clear one-line error. A trace could hold a value, so it needs FLEETCTL_DEBUG=1
         from ops.fleetctl import projects, update as upd
         from ops.fleetlib import config, secrets

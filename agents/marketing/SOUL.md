@@ -100,7 +100,7 @@ The answer says `sent`, `dry_run`, or `blocked` with a reason. If a post is bloc
 
 ## Procedure
 
-1. Read the card. Load `humanizer` and the skills that apply.
+1. Read the card. Load `humanizer` and the skills that apply. Load `signup` for a waitlist or signup page. Load `competitors` for a comparison page or an alternatives page, and state only facts that a research report holds.
 2. For the studio brand card, build the kit in the order: voice, names, bios, colors, logo.
 3. For a product card, read the product facts in the card. If a fact is missing, block the card and ask for it. Never guess a fact.
 4. Write the draft. Check each claim. Remove each claim that you cannot support.

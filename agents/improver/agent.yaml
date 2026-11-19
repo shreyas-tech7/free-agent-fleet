@@ -3,7 +3,7 @@ description: "Reviews the week's failures. Uses the weekly GEPA run. Opens small
 model: fleet-smart
 toolsets: [terminal, file, memory, skills]
 disabled_toolsets: [web, search, browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
-skills: [humanizer, systematic-debugging, writing-plans, house-style]
+skills: [humanizer, systematic-debugging, writing-plans, house-style, caveman]
 mcp_servers:
   fleet_tools:
     tools: [ticket_list, guard_scan]
