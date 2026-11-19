@@ -3,7 +3,7 @@ description: "Builds products for the Cloudflare Workers and Pages free plan wit
 model: fleet-coder
 toolsets: [terminal, file, memory, skills]
 disabled_toolsets: [web, search, browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
-skills: [humanizer, test-driven-development, writing-plans, using-git-worktrees, systematic-debugging, verification-before-completion, requesting-code-review, receiving-code-review, house-style]
+skills: [humanizer, test-driven-development, writing-plans, using-git-worktrees, systematic-debugging, verification-before-completion, requesting-code-review, receiving-code-review, house-style, api-design, security-review, accessibility, caveman]
 mcp_servers:
   fleet_tools:
     tools: [ticket_list, ticket_update, deploy_commit, preview_start, preview_stop]

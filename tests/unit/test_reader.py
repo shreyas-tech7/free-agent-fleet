@@ -336,3 +336,33 @@ def test_http_api(reader):
         assert call("/read", {"nope": 1})[0] == 400
     finally:
         srv.shutdown()
+
+
+def test_a_page_that_takes_too_long_in_total_is_refused(site):
+    """The socket timeout limits one read. A slow drip of bytes passed it for ever. See F-07."""
+    clock = {"now": 0.0, "step": 0.0}
+
+    def tick():
+        clock["now"] += clock["step"]
+        return clock["now"]
+    slow = fetch.SafeFetcher(user_agent="agent-fleet-reader/0.1", allow_private=True, host_delay=0, clock=tick, total_timeout=60)
+    assert slow.fetch(url(site, "/page")).status == 200                   # a normal clock reads the page and keeps robots.txt
+    clock["step"] = 50.0                                                  # now every look at the clock is 50 seconds later
+    with pytest.raises(netguard.Blocked) as err:
+        slow.fetch(url(site, "/page"))
+    assert err.value.reason == "timeout"
+
+
+def test_the_body_is_read_in_pieces_up_to_the_cap():
+    class Resp:
+        def __init__(self, data):
+            self.data, self.sizes = data, []
+
+        def read(self, n):
+            self.sizes.append(n)
+            piece, self.data = self.data[:min(n, 7)], self.data[min(n, 7):]
+            return piece
+    f = fetch.SafeFetcher(max_bytes=20, clock=lambda: 0.0)
+    resp = Resp(b"x" * 100)
+    assert f._read_body(resp, 0.0) == b"x" * 21 and max(resp.sizes) <= 21            # one byte past the cap marks a cut page
+    assert f._read_body(Resp(b"short"), 0.0) == b"short"

@@ -87,6 +87,14 @@ class Deployer:
             pass
         LOG.info("deploy", project=project, status=status, reason=reason)
 
+    def _save_migrations(self, project, names):
+        """Record the migrations that ran. The other fields of the project stay as they are."""
+        state = jsonio.read_json(self.state / "deployments.json", {}) or {}
+        entry = dict(state.get(project) or {})
+        entry["migrations"] = sorted(set(names) | set(entry.get("migrations", [])))
+        state[project] = entry
+        jsonio.write_json(self.state / "deployments.json", state, mode=0o640)
+
     def check_free_rules(self, spec, module, migrations):
         """Return a reason string when the product breaks a $0 rule, else None."""
         dep = self.cfg.get("deployer") or {}
@@ -153,11 +161,12 @@ class Deployer:
             d1_id = None
             if spec.get("d1"):
                 d1_id = self.cf.d1_ensure("fleet-" + project)
-                known = (jsonio.read_json(self.state / "deployments.json", {}) or {}).get(project, {}).get("migrations", [])
+                known = list((jsonio.read_json(self.state / "deployments.json", {}) or {}).get(project, {}).get("migrations", []))
                 for name in sorted(migrations):
                     if name not in known:
                         self.cf.d1_query(d1_id, migrations[name].decode())
                         known.append(name)
+                        self._save_migrations(project, known)      # at once. A later failure must not run it again.
             self.cf.upload_worker(script, module, spec.get("compatibility_date", "2025-09-01"), d1_id)
             url = "https://%s.%s.workers.dev" % (script, self.cf.subdomain())
         except CloudflareError as exc:

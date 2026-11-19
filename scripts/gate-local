@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# gate-local: run the scans of merger gate G2 on your own changes, with no sudo and no container.
+#
+# The real gate runs in a sealed container that only root can start. This script is a preview for the owner's clone.
+# It installs the same pinned scanner versions, from the same hash-locked files, into folders in your home directory.
+# The merger still decides. A pass here does not replace gate G2.
+#
+# Usage:
+#   scripts/gate-local setup            make the scanner folders (needs uv and the network, once)
+#   scripts/gate-local semgrep [REF]    scan the code files that differ from REF (default: the live copy) at severity ERROR
+#   scripts/gate-local skills [REF]     scan each skill folder that differs from REF with the Cisco skill scanner
+#   scripts/gate-local secrets          scan the tracked files with gitleaks
+#   scripts/gate-local all [REF]        the three scans. The exit code is 1 when one of them fails.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+base="${FLEET_GATE_LOCAL_DIR:-$HOME/.cache/agent-fleet/gate-local}"
+rules="${FLEET_SEMGREP_RULES:-/opt/agent-fleet/vendor/semgrep-rules}"
+cmd="${1:-all}"
+ref_arg="${2:-}"
+
+say() { printf 'gate-local: %s\n' "$*"; }
+
+base_ref() {
+  if [ -n "$ref_arg" ]; then printf '%s' "$ref_arg"; return; fi
+  # The live copy has merge commits that this clone lacks. Fetch it as a reference, so the diff shows what the gate will see.
+  if git fetch -q /opt/agent-fleet/repo main:refs/remotes/live/main 2>/dev/null; then printf 'refs/remotes/live/main'; else printf 'origin/main'; fi
+}
+
+changed() {     # changed or new files that match the pattern in $1, one per line
+  local ref="$1" pattern="$2"
+  { git diff --name-only "$ref" -- ; git ls-files --others --exclude-standard; } | sort -u | grep -E "$pattern" || true
+}
+
+setup_one() {   # name, requirements file
+  local dir="$base/$1" req="$2"
+  if [ -x "$dir/bin/python" ] && [ -f "$dir/.done" ] && cmp -s "$req" "$dir/.requirements"; then say "$1: ready"; return; fi
+  command -v uv >/dev/null || { say "uv is missing. Install it from https://docs.astral.sh/uv/ first."; exit 2; }
+  rm -rf "$dir"
+  mkdir -p "$base"
+  uv venv --quiet --python /usr/bin/python3 "$dir"
+  uv pip install --quiet --python "$dir/bin/python" --require-hashes -r "$req"     # every package is pinned and hash-checked
+  cp "$req" "$dir/.requirements"
+  touch "$dir/.done"
+  say "$1: installed from $req"
+}
+
+need() {        # the tool path, or a clear message
+  [ -x "$1" ] || { say "the scanner is not installed. Run: scripts/gate-local setup"; exit 2; }
+}
+
+run_semgrep() {
+  local ref files tool="$base/semgrep/bin/semgrep" out
+  need "$tool"
+  [ -d "$rules" ] || { say "the semgrep rules are missing at $rules. The installer step 55 makes them."; exit 2; }
+  ref="$(base_ref)"
+  files="$(changed "$ref" '\.(py|js|mjs|cjs|ts|tsx|jsx|sh|bash)$')"
+  local list=()
+  while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && list+=("$f"); done <<< "$files"
+  [ "${#list[@]}" -gt 0 ] || { say "semgrep: no changed code files"; return 0; }
+  out="$(mktemp)"
+  SEMGREP_SEND_METRICS=off "$tool" scan --config "$rules" --metrics=off --disable-version-check --severity ERROR --quiet --json --timeout 30 \
+    "${list[@]}" > "$out" 2>/dev/null || true
+  /usr/bin/python3 -I - "$out" <<'PY'
+import json, sys
+raw = open(sys.argv[1]).read()
+try:
+    data = json.loads(raw[raw.index("{"):])
+except ValueError:
+    print("gate-local: semgrep gave no result"); sys.exit(2)
+res = data.get("results", [])
+for r in res:
+    print("%s:%d  %s" % (r["path"], r["start"]["line"], r["check_id"].split(".")[-1]))
+print("gate-local: semgrep: %d finding(s) in %d file(s)" % (len(res), len(data.get("paths", {}).get("scanned", []))))
+sys.exit(1 if res else 0)
+PY
+}
+
+run_skills() {
+  local ref tool="$base/skillscan/bin/skill-scanner" bad=0 n=0
+  need "$tool"
+  ref="$(base_ref)"
+  local dirs
+  dirs="$(changed "$ref" '^skills/[a-z0-9][a-z0-9-]*/' | cut -d/ -f1-2 | sort -u)"
+  while IFS= read -r d; do
+    [ -n "$d" ] && [ -f "$d/SKILL.md" ] || continue
+    n=$((n + 1))
+    if ! "$tool" scan "$d" --policy balanced --fail-on-severity high --format summary > /dev/null 2>&1; then
+      bad=$((bad + 1)); say "skill-scanner: FAIL $d"
+    fi
+  done <<< "$dirs"
+  say "skill-scanner: $n skill(s), $bad failed"
+  [ "$bad" -eq 0 ]
+}
+
+run_secrets() {
+  command -v gitleaks >/dev/null || { say "gitleaks is missing"; exit 2; }
+  local work; work="$(mktemp -d)"
+  git ls-files -z | xargs -0 -I{} cp --parents {} "$work"/ 2>/dev/null || true      # the tracked files only, as the gate sees them
+  if (cd "$work" && gitleaks dir . --no-banner --redact --exit-code 1 --config .gitleaks.toml > /dev/null 2>&1); then
+    say "gitleaks: no leaks"; rm -rf "$work"; return 0
+  fi
+  rm -rf "$work"; say "gitleaks: FAIL"; return 1
+}
+
+case "$cmd" in
+  setup)
+    setup_one semgrep vendor/gate-semgrep-requirements.txt
+    setup_one skillscan vendor/gate-skillscan-requirements.txt
+    ;;
+  semgrep) run_semgrep ;;
+  skills) run_skills ;;
+  secrets) run_secrets ;;
+  all)
+    rc=0
+    run_semgrep || rc=1
+    run_skills || rc=1
+    run_secrets || rc=1
+    exit "$rc"
+    ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
+esac

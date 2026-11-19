@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 LOOPBACK = ("127.0.0.1", "::1", "localhost")
+SOCKET_TIMEOUT = 30           # seconds for one read or write on the socket. The time that a handler computes is not limited.
 
 
 def token_hash(token):
@@ -79,6 +80,7 @@ class JsonServer:
         class Handler(BaseHTTPRequestHandler):
             server_version = "agent-fleet"
             sys_version = ""
+            timeout = SOCKET_TIMEOUT          # a client that sends nothing cannot hold a thread for ever
 
             def log_message(self, *args):
                 return
@@ -95,7 +97,12 @@ class JsonServer:
             def _handle(self):
                 parsed = urlparse(self.path)
                 try:
-                    length = int(self.headers.get("Content-Length") or 0)
+                    try:
+                        length = int(self.headers.get("Content-Length") or 0)
+                    except ValueError:
+                        raise HttpError(400, "the Content-Length header is not a number") from None
+                    if length < 0:
+                        raise HttpError(400, "the Content-Length header is negative")      # read(-1) would wait for the end of the stream
                     if length > outer.max_body:
                         raise HttpError(413, "the body is too large")
                     body = self.rfile.read(length) if length else b""

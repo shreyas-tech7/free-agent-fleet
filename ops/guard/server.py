@@ -15,14 +15,16 @@ from ops.fleetlib import config, httpd, log, paths
 from ops.guard import rules
 
 LOG = log.get("guard")
+HARD_MAX_CHARS = 300_000      # the longest text of one /scan call. The longest post that the Publisher allows has 100,000 characters.
 
 
 class Screen:
     def __init__(self, threshold=0.90, max_chars=20000, classifier=None, model_id="", force_rules_only=False,
-                 block_threshold=0.98):
+                 block_threshold=0.98, hard_max_chars=HARD_MAX_CHARS):
         self.threshold = threshold
         self.block_threshold = block_threshold
         self.max_chars = max_chars
+        self.hard_max_chars = max(int(hard_max_chars), 1000)
         self.classifier = None if force_rules_only else classifier
         self.model_id = model_id
         self.lock = threading.Semaphore(1)       # one model run at a time protects the CPU
@@ -107,7 +109,8 @@ def load_screen(cfg):
             error = "%s: %s" % (type(exc).__name__, str(exc)[:120])
             classifier = None
     block_threshold = float(config.get(cfg, "guard.block_threshold", 0.98))
-    screen = Screen(threshold, max_chars, classifier, model_id, force, block_threshold)
+    screen = Screen(threshold, max_chars, classifier, model_id, force, block_threshold,
+                    int(config.get(cfg, "guard.hard_max_chars", HARD_MAX_CHARS)))
     screen.load_error = error
     return screen
 
@@ -118,6 +121,10 @@ def routes(screen):
         text = body.get("text") if isinstance(body, dict) else None
         if not isinstance(text, str):
             raise httpd.HttpError(400, "the body must be {\"text\": \"...\"}")
+        if len(text) > screen.hard_max_chars:
+            # One very long text would hold the one model slot for minutes. Every caller treats an error as "not safe".
+            LOG.warn("scan_refused", chars=len(text), limit=screen.hard_max_chars)
+            raise httpd.HttpError(413, "the text is longer than %d characters" % screen.hard_max_chars)
         result = screen.scan(text)
         LOG.info("scan", chars=len(text), label=result["label"], score=result["score"], mode=result["mode"])
         return 200, result

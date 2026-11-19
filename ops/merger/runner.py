@@ -76,14 +76,32 @@ class Merger:
         image = self.image_id or container.pinned_image(self.runner)
         osv_dir = paths.merger_runs_dir().parent / "osv-cache"
         LOG.info("osv_refresh", result=str(container.refresh_osv(osv_dir, self.runner))[:200])
+        rules = "/opt/agent-fleet/vendor/semgrep-rules"
+        entry = self.live / "ops" / "merger" / "gate_entry.py"
+        export = lambda dest: gitops.export_tree(self.staging, commit, dest)
+        # Phase 1, trusted: the fleet tests, the hidden tests, the scans, and the Rule of Two. No agent code runs here.
         run_dir = self.runs / ("run-%s" % commit[:10])
         container.cleanup(run_dir)
         try:
-            container.prepare_run(run_dir, lambda dest: gitops.export_tree(self.staging, commit, dest), paths.hidden_tests_dir(),
-                                  self.live / "ops" / "merger" / "gate_entry.py", {"changed": changed, "gates": ["G1", "G2", "G4"]})
-            return container.run_gates(run_dir, image, "/opt/agent-fleet/vendor/semgrep-rules", osv_dir, runner=self.runner)
+            container.prepare_run(run_dir, export, paths.hidden_tests_dir(), entry,
+                                  {"changed": changed, "gates": ["G1", "G2", "G4"], "phase": "trusted"})
+            trusted = container.run_gates(run_dir, image, rules, osv_dir, runner=self.runner)
         finally:
             container.cleanup(run_dir)
+        if not container.changed_projects(changed) or not container.trusted_passed(trusted):
+            return container.merge_phases(trusted, None)
+        # Phase 2, agent code: the tests of each changed project, in a new container with no hidden tests. See D-074.
+        run_dir = self.runs / ("run-%s-projects" % commit[:10])
+        container.cleanup(run_dir)
+        try:
+            container.prepare_run(run_dir, export, None, entry, {"changed": changed, "phase": "projects"})
+            try:
+                projects = container.run_gates(run_dir, image, rules, osv_dir, runner=self.runner)
+            except container.GateError as exc:
+                projects = {"P": {"ok": False, "detail": "the project test run failed: %s" % exc}}
+        finally:
+            container.cleanup(run_dir)
+        return container.merge_phases(trusted, projects)
 
     def _systemd_restart(self, units):
         results = {}

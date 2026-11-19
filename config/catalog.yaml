@@ -1,0 +1,355 @@
+# The tool catalog. One entry for each outside tool, skill source, model, or list that the owner named or that the fleet uses.
+# The research agent reads it before the weekly scouting. The security agent reads it at the start of the install pipeline.
+# The owner changes it. Agents cannot (merger gate G3 protects config/).
+#
+# rating   adopt   the fleet uses it. Keep it.
+#          trial   a part of it is in use, or it is ready to try. The install gate still applies to each new part.
+#          watch   not in use. Look again when the named condition is true.
+#          reject  do not install it and do not file a request for it. The reason says why.
+# status   installed  software on the machine, with a row in vendor/LOCK.md
+#          vendored   text copied into skills/ at a pinned commit, with UPSTREAM.md
+#          planned    wanted, but a named step is open
+#          none       nothing is installed
+# A rating is not an approval. Each install still needs the install gate and the owner's approval. See D-050 and D-076.
+version: 1
+reviewed: "2026-11-16"
+entries:
+  - name: hermes-agent
+    url: https://github.com/NousResearch/hermes-agent
+    kind: runtime
+    license: MIT
+    rating: adopt
+    status: installed
+    pin: "v0.23.1"
+    used_by: [orchestrator, research, build, marketing, feedback, security, improver]
+    why: "The agent runtime. Each agent is one profile. The gateway hosts the Kanban dispatcher and the cron jobs."
+    next: "v0.23.1 is the newest release on the review date. Updates go through the merger."
+
+  - name: hermes-agent-self-evolution
+    url: https://github.com/NousResearch/hermes-agent-self-evolution
+    kind: tool
+    license: MIT
+    rating: adopt
+    status: installed
+    pin: "0a929e3aa20e15cf04dc7c28492a7d41a5139125"
+    used_by: [improver]
+    why: "The weekly GEPA run of the improver. It evolves one skill each week inside the free budget."
+    next: "The README states MIT. The repository has no LICENSE file. The first weekly run failed. Read the next run note. See D-071."
+
+  - name: omniroute
+    url: https://github.com/cheaper-inference/OmniRoute
+    kind: router
+    license: MIT
+    rating: adopt
+    status: installed
+    pin: "3.8.53"
+    used_by: [orchestrator, research, build, marketing, feedback, security, improver]
+    why: "The model router on 127.0.0.1:20128 with the combos fleet-smart, fleet-worker, fleet-coder, and fleet-local."
+    next: "3.8.53 is the newest stable release on the review date. Subscription, OAuth, proxy, and stealth features stay off."
+
+  - name: litellm
+    url: https://github.com/BerriAI/litellm
+    kind: router
+    license: "MIT, with an enterprise folder under another license"
+    rating: adopt
+    status: planned
+    pin: "config only"
+    used_by: []
+    why: "The fallback router. ops/router/litellm_gen.py writes its config with the same model names. It does not run."
+    next: "litellm 1.93.2 sits in the gate image as a dependency of the Cisco mcp-scanner. Re-lock it before 2026-12-15. See docs/UPGRADES.md."
+
+  - name: free-llm-api-resources
+    url: https://github.com/cheahjs/free-llm-api-resources
+    kind: catalog
+    license: unknown
+    rating: watch
+    status: none
+    used_by: []
+    why: "A list of free model APIs. It could feed the search for more free capacity."
+    next: "The address answered 404 through the GitHub API on 2026-11-16. No fork is trusted. Look again when the address answers."
+
+  - name: purple-llama
+    url: https://github.com/meta-llama/PurpleLlama
+    kind: model
+    license: "Llama Community License for the models, MIT for CodeShield and the evals"
+    rating: trial
+    status: planned
+    used_by: []
+    why: "Prompt Guard 2 is the planned second model of the injection screen. CodeShield scans generated code."
+    next: "The owner accepts the Prompt Guard 2 license on Hugging Face first. Then export it to ONNX and pin each file hash. CodeShield stays on watch, because gate G2 already runs Semgrep."
+
+  - name: deberta-v3-base-prompt-injection-v2
+    url: https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2
+    kind: model
+    license: Apache-2.0
+    rating: adopt
+    status: installed
+    pin: "90c9989b1a342275dd0d1a95aad283c04e075671"
+    used_by: [research, feedback, security, marketing, improver]
+    why: "The model of the injection screen on 127.0.0.1:8099. It flagged 25 of 25 corpus attacks and 0 of 10 normal texts on 2026-11-16."
+    next: "None."
+
+  - name: cisco-skill-scanner
+    url: https://github.com/cisco-ai-defense/skill-scanner
+    kind: scanner
+    license: Apache-2.0
+    rating: adopt
+    status: installed
+    pin: "2.3.2"
+    used_by: [security]
+    why: "Gate G2 scans each changed skill with it. scripts/gate-local runs the same version outside the container."
+    next: "2.3.2 is the newest release on the review date."
+
+  - name: cisco-mcp-scanner
+    url: https://github.com/cisco-ai-defense/mcp-scanner
+    kind: scanner
+    license: Apache-2.0
+    rating: adopt
+    status: installed
+    pin: "4.8.7"
+    used_by: [security]
+    why: "Gate G2 scans the descriptions of the fleet's own MCP tools with it."
+    next: "4.8.7 is the newest release on the review date. Its litellm dependency has open advisories. See the litellm entry."
+
+  - name: garak
+    url: https://github.com/NVIDIA/garak
+    kind: scanner
+    license: Apache-2.0
+    rating: trial
+    status: planned
+    pin: "v0.17.1 when installed"
+    used_by: []
+    why: "A model vulnerability scanner for the weekly red-team drill of the security agent."
+    next: "Not installed. One probe run sends hundreds of prompts, and the only fleet route was at 180 percent of its daily free limit on 2026-11-16. Install it after more free capacity exists. The plain-code drill covers the known attacks until then. See D-027."
+
+  - name: gitleaks
+    url: https://github.com/gitleaks/gitleaks
+    kind: scanner
+    license: MIT
+    rating: adopt
+    status: installed
+    pin: "v8.30.1"
+    used_by: [security]
+    why: "The secret scan of gate G2, of the backup, and of the public export."
+    next: "v8.30.1 is the newest release on the review date."
+
+  - name: osv-scanner
+    url: https://github.com/google/osv-scanner
+    kind: scanner
+    license: Apache-2.0
+    rating: adopt
+    status: installed
+    pin: "v2.7.1"
+    used_by: [security]
+    why: "The dependency scan of gate G2 and of the public export. It runs offline in the gate."
+    next: "v2.7.1 is the newest release on the review date. Nine reviewed ignores end on 2026-12-15."
+
+  - name: semgrep
+    url: https://github.com/semgrep/semgrep
+    kind: scanner
+    license: LGPL-2.1
+    rating: adopt
+    status: installed
+    pin: "1.185.0"
+    used_by: [security]
+    why: "The code scan of gate G2 with the open-source rules at a pinned commit."
+    next: "1.185.0 is the newest release on the review date."
+
+  - name: rtk
+    url: https://github.com/rtk-ai/rtk
+    kind: tool
+    license: "Apache-2.0 (the rtk-oss edition)"
+    rating: adopt
+    status: installed
+    pin: "v1.2.0"
+    used_by: [orchestrator, research, build, marketing, security, improver]
+    why: "A static binary in each terminal sandbox. It shortens long command output and so saves model tokens."
+    next: "None. No hook and no plugin is installed. See D-021."
+
+  - name: caveman
+    url: https://github.com/JuliusBrussee/caveman
+    kind: skill
+    license: Apache-2.0
+    rating: trial
+    status: vendored
+    pin: "v4.1.0 (1e91f1306d602d4ca23618701b1185575ae1869b)"
+    used_by: [orchestrator, research, build, security, improver]
+    why: "A terse voice for the text of an agent's own turn. It keeps every fact and drops filler. It matches the terse message rule."
+    next: "Only the core skill file is copied. The proxy, the hooks, the MCP server, and the hosted service are not. Files, cards, tickets, and public text stay in normal style. Measure the output tokens after one week."
+
+  - name: humanizer
+    url: https://github.com/blader/humanizer
+    kind: skill
+    license: MIT
+    rating: adopt
+    status: vendored
+    pin: "b48c832f0f809c1b5658edbb838c2521b72f2413"
+    used_by: [orchestrator, research, build, marketing, feedback, security, improver]
+    why: "Every agent loads it before it writes public text."
+    next: "The pinned commit is the newest on the review date."
+
+  - name: marketingskills
+    url: https://github.com/coreyhaines31/marketingskills
+    kind: skill-source
+    license: MIT
+    rating: adopt
+    status: vendored
+    pin: "1f837447b20bb6f0e72d87b80ece1c221c362c7d"
+    used_by: [marketing, research]
+    why: "17 skills are copied. The new ones are competitors and signup, for the Validate stage."
+    next: "Do not copy ads, ad-creative, influencer-marketing, or sms: each needs money. Do not copy competitor-profiling: it is built on the paid Firecrawl and DataForSEO services. Do not copy directory-submissions: it needs new accounts."
+
+  - name: postiz
+    url: https://github.com/gitroomhq/postiz-app
+    kind: service
+    license: AGPL-3.0
+    rating: watch
+    status: none
+    used_by: []
+    why: "A self-hosted scheduler that posts to many social platforms through official APIs."
+    next: "Not installed. It needs Postgres, Redis, and a workflow engine, and this machine is in the small tier. It would also hold social tokens, and the Publisher is the one part that may. To adopt it, run it as its own service and add a Publisher adapter for its public API, so every post still passes the honesty filter, the injection screen, the rate limits, and the release approval."
+
+  - name: superpowers
+    url: https://github.com/obra/superpowers
+    kind: skill-source
+    license: MIT
+    rating: adopt
+    status: vendored
+    pin: "22f0b463e7a5e579904dd6211a520321035526f7"
+    used_by: [build, improver, security]
+    why: "Seven skills are copied: test-driven development, plans, worktrees, debugging, verification, and code review."
+    next: "The other skills start sub-agents or ask a human, and the fleet has neither in a worker session."
+
+  - name: playwright-mcp
+    url: https://github.com/microsoft/playwright-mcp
+    kind: mcp
+    license: Apache-2.0
+    rating: adopt
+    status: installed
+    pin: "0.0.83"
+    used_by: [build]
+    why: "UI tests of the build agent, on local pages only."
+    next: "0.0.85 exists. Queue it through the install gate. See docs/UPGRADES.md."
+
+  - name: crawl4ai
+    url: https://github.com/unclecode/crawl4ai
+    kind: tool
+    license: Apache-2.0
+    rating: adopt
+    status: installed
+    pin: "0.9.5"
+    used_by: [research, marketing, security]
+    why: "It turns fetched HTML into Markdown inside the page reader. It never fetches and never starts a browser."
+    next: "0.9.5 is the newest release on the review date. The hosted Crawl4AI Cloud is not used."
+
+  - name: searxng
+    url: https://github.com/searxng/searxng
+    kind: service
+    license: AGPL-3.0
+    rating: adopt
+    status: installed
+    pin: "image digest in vendor/pins.env"
+    used_by: [research, marketing]
+    why: "The web search backend of Hermes on 127.0.0.1:8888. It runs unchanged as its own service."
+    next: "None."
+
+  - name: awesome-agent-skills
+    url: https://github.com/VoltAgent/awesome-agent-skills
+    kind: catalog
+    license: MIT
+    rating: watch
+    status: none
+    used_by: [research]
+    why: "A list of links to skills. The research agent may read it during the weekly scouting."
+    next: "The list is not a source. Each skill comes from its own repository and needs its own license check and install gate. docs/UPGRADES.md rates 12 items from it."
+
+  - name: ghidra-mcp
+    url: https://github.com/LaurieWired/GhidraMCP
+    kind: mcp
+    license: Apache-2.0
+    rating: reject
+    status: none
+    used_by: []
+    why: "An MCP server that lets a model reverse engineer binaries in Ghidra."
+    next: "No job in the business loop reads a binary. It needs the Ghidra desktop program with a plugin, and this server has no display. Reverse engineering a product of another company can also break its terms. Look again only if a project needs binary analysis of the fleet's own files."
+
+  - name: learn-anything
+    url: https://learn-anything.xyz/
+    kind: site
+    license: unknown
+    rating: watch
+    status: none
+    used_by: []
+    why: "A website of learning topics."
+    next: "It names no API, no license, and no repository. The research agent may read a public page of it through the page reader, like any other page. Nothing is installed."
+
+  - name: mcp-anything-gabrielekarra
+    url: https://github.com/gabrielekarra/mcp-anything
+    kind: tool
+    license: Apache-2.0
+    rating: watch
+    status: none
+    used_by: []
+    why: "It writes an MCP server from an OpenAPI file, a codebase, or a plain brief."
+    next: "The brief mode needs a paid model key, which the zero-cost rule forbids. It could help the build agent when a product must ship an MCP server. Look again then, and use only the mode that needs no key."
+
+  - name: anythingmcp
+    url: https://github.com/HelpCode-ai/anythingmcp
+    kind: service
+    license: AGPL-3.0
+    rating: reject
+    status: none
+    used_by: []
+    why: "A self-hosted MCP gateway with hundreds of business connectors and a hosted cloud edition."
+    next: "The fleet already has two small tool servers: fleet_tools and the n8n fleet-tools server. A wide gateway would give agents many new outside actions at once, which works against the Rule of Two. No project needs a connector from it."
+
+  - name: mcp-anything-gaarutyunov
+    url: https://github.com/gaarutyunov/mcp-anything
+    kind: tool
+    license: Apache-2.0
+    rating: reject
+    status: none
+    used_by: []
+    why: "A proxy that turns REST APIs, shell commands, and scripts into MCP tools from a config file."
+    next: "It had 3 stars on the review date, so few people have read its code. A tool that turns shell commands into MCP tools would bypass the sandbox of the agents."
+
+  - name: rag-anything-mcp
+    url: https://github.com/jesse-merhi/rag-anything-mcp
+    kind: mcp
+    license: MIT
+    rating: reject
+    status: none
+    used_by: []
+    why: "An MCP server for document search with images and tables."
+    next: "Each tool call needs an OpenAI key, which costs money. The last change is from July 2025. The research agent reads pages through the page reader and keeps notes in files."
+
+  - name: awesome-osint-list
+    url: https://github.com/Astrosp/Awesome-OSINT-List
+    kind: catalog
+    license: GPL-3.0
+    rating: watch
+    status: none
+    used_by: [research]
+    why: "A list of open-source intelligence tools. It shaped the fleet's own market-osint skill."
+    next: "No text of the list is copied, because of its license. Most tools on it look up people, need accounts, or use leaked data, and core/RULES.md forbids those. The market-osint skill names the narrow set of methods that the research agent may use."
+
+  - name: rea
+    url: https://github.com/morluto/rea
+    kind: mcp
+    license: MIT
+    rating: reject
+    status: none
+    used_by: []
+    why: "An MCP server that reverse engineers apps and binaries with tools such as Frida and Hopper."
+    next: "The same reasons as ghidra-mcp. The research agent finds competitor gaps from public pages and official APIs, never from the inside of a product."
+
+  - name: ecc
+    url: https://github.com/affaan-m/ECC
+    kind: skill-source
+    license: MIT
+    rating: trial
+    status: vendored
+    pin: "v2.2.3 (c05b2d6614f62f6db0047669aa4eefb223d478f9)"
+    used_by: [research, build, security]
+    why: "Four skills are copied: market-research, api-design, security-review, and accessibility."
+    next: "The repository holds more than 300 skills, plus hooks, commands, and installers for other agent tools. Only the four Markdown skills are copied. Never run its installer. Many other skills need paid services such as Exa and Firecrawl."

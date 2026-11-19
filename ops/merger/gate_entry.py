@@ -6,6 +6,13 @@ Network:  none.   Root file system: read-only.   User: 65534.   Writable: /tmp o
 
 Output: one line that starts with GATE_RESULT and holds JSON. The merger reads it. The details stay with root.
 Agents learn only pass or fail.
+
+Two phases, each in its own container. The merger starts them. See D-074.
+  trusted   G1 (the fleet tests and the hidden tests), G2, and G4. No file that an agent may change runs here.
+            The tests, the scanners, and the code under test all come from paths that gate G3 protects.
+  projects  The tests of each changed project. An agent writes these tests, so this is agent code. It runs last,
+            in a second container that has no hidden tests. The merger reads only the key "P" from this phase.
+            A process that forges a result line there can change nothing but the verdict on its own tests.
 """
 import json
 import os
@@ -25,11 +32,12 @@ LOCKFILES = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", 
 
 
 def run(cmd, cwd, extra_env=None, timeout=900):
+    # Each command is a fixed list in this file. No shell runs. The gate container has no network and no secrets.
     env = {"PATH": "/opt/test/bin:/usr/local/bin:/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
            "LITELLM_LOCAL_MODEL_COST_MAP": "True", "FLEET_CANDIDATE": str(WORK / "src")}
     env.update(extra_env or {})
     try:
-        proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)  # nosemgrep: dangerous-subprocess-use-audit
         return proc.returncode, (proc.stdout + proc.stderr)
     except subprocess.TimeoutExpired:
         return 124, "timeout after %d seconds" % timeout
@@ -68,7 +76,7 @@ def project_dirs(changed):
 
 
 def gate_g1(job):
-    """The fleet tests, the policy tests, the hidden tests, and the tests of each changed project."""
+    """The fleet tests, the policy tests, and the hidden tests. The tests of a changed project run in the second phase."""
     notes, ok = [], True
     src = WORK / "src"
     rc, out = run([PY, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-m", "not deployed", "core/tests/policy", "tests/unit", "tests/injection"],
@@ -82,6 +90,13 @@ def gate_g1(job):
     else:
         notes.append("hidden tests: none found")
         ok = False
+    return ok, "; ".join(notes)
+
+
+def gate_projects(job):
+    """The tests of each changed project. Agent code. It runs alone, in the second container."""
+    notes, ok = [], True
+    src = WORK / "src"
     for slug in project_dirs(job.get("changed", [])):
         folder = src / "projects" / slug
         kind = has_tests(folder) if folder.is_dir() else None
@@ -204,10 +219,14 @@ def main(argv):
     started = time.time()
     copy_source()
     result = {}
-    for name, fn in (("G1", gate_g1), ("G2", gate_g2), ("G4", gate_g4)):
-        if name in wanted:
-            ok, detail = fn(job)
-            result[name] = {"ok": bool(ok), "detail": detail[:2500]}
+    if job.get("phase") == "projects":
+        ok, detail = gate_projects(job)
+        result["P"] = {"ok": bool(ok), "detail": (detail or "no project tests")[:2500]}
+    else:
+        for name, fn in (("G1", gate_g1), ("G2", gate_g2), ("G4", gate_g4)):
+            if name in wanted:
+                ok, detail = fn(job)
+                result[name] = {"ok": bool(ok), "detail": detail[:2500]}
     result["seconds"] = round(time.time() - started)
     print("GATE_RESULT " + json.dumps(result))
     return 0

@@ -9,8 +9,12 @@ Rules (core/RULES.md, rule 6):
 import datetime
 import re
 import time
+import urllib.parse
 
 from ops.fleetlib import httpc, redact
+
+
+AT_POST_URI = re.compile(r"^at://[A-Za-z0-9.:%_-]{3,253}/app\.bsky\.feed\.post/[A-Za-z0-9._~:-]{1,64}$")
 
 
 class AdapterError(Exception):
@@ -115,6 +119,35 @@ class Bluesky(Adapter):
                         "features": [{"$type": "app.bsky.richtext.facet#link", "uri": m.group(0)}]})
         return out
 
+    @staticmethod
+    def _ref(node):
+        """A strong reference {uri, cid}, or None when the node is not one."""
+        if isinstance(node, dict) and isinstance(node.get("uri"), str) and isinstance(node.get("cid"), str) \
+                and AT_POST_URI.match(node["uri"]) and node["cid"]:
+            return {"uri": node["uri"], "cid": node["cid"]}
+        return None
+
+    def _reply_refs(self, reply_to):
+        """The root and the parent of a reply. Bluesky needs the address and the content hash of both.
+
+        The Publisher passes the address of the post as a string. The adapter asks Bluesky for its hash and its thread
+        root. A post that is itself a reply names the root of its thread. Any other post is its own root.
+        """
+        parent = self._ref(reply_to)
+        if parent is not None:
+            return {"root": self._ref(reply_to.get("root")) or parent, "parent": parent}
+        if not isinstance(reply_to, str) or not AT_POST_URI.match(reply_to):
+            raise AdapterError("bluesky needs the at:// address of a post to reply to")
+        got = self._call("GET", "%s/xrpc/app.bsky.feed.getPosts?uris=%s" % (self.pds, urllib.parse.quote(reply_to, safe="")),
+                         headers=self._auth())
+        posts = got.get("posts") if isinstance(got, dict) else None
+        found = posts[0] if isinstance(posts, list) and posts and isinstance(posts[0], dict) else {}
+        parent = self._ref(found)
+        if parent is None:
+            raise AdapterError("bluesky could not find the post to reply to")
+        thread = (found.get("record") or {}).get("reply") if isinstance(found.get("record"), dict) else None
+        return {"root": self._ref((thread or {}).get("root")) or parent, "parent": parent}
+
     def post(self, text, title=None, tags=None, reply_to=None, media=None):
         did = self._login()["did"]
         record = {"$type": "app.bsky.feed.post", "text": text, "createdAt": _now(), "langs": ["en"]}
@@ -122,7 +155,7 @@ class Bluesky(Adapter):
         if facets:
             record["facets"] = facets
         if reply_to:
-            record["reply"] = {"root": reply_to.get("root", reply_to), "parent": reply_to}
+            record["reply"] = self._reply_refs(reply_to)
         data = self._call("POST", self.pds + "/xrpc/com.atproto.repo.createRecord", headers=self._auth(),
                           json_body={"repo": did, "collection": "app.bsky.feed.post", "record": record})
         return {"id": data.get("uri", ""), "cid": data.get("cid", "")}

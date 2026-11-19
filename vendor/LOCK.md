@@ -55,10 +55,12 @@ Kinds: apt, binary, npm, pypi, docker, git, model, script.
 | omniroute | docker | docker.io/diegosouzapw/omniroute | diegosouzapw/omniroute@sha256:b52a17661a1aff42ffb78f349f423e986dfc55b57274f28559f8387622ef8ee4 | b52a17661a1aff42ffb78f349f423e986dfc55b57274f28559f8387622ef8ee4 | MIT |
 | searxng | docker | docker.io/searxng/searxng | searxng/searxng@sha256:0b104e2e1117b0ca83a36f3ac6ecda7d9ee948ccea6ead74750a03e1b856229a | 0b104e2e1117b0ca83a36f3ac6ecda7d9ee948ccea6ead74750a03e1b856229a | AGPL-3.0 |
 | agent-fleet-gate | docker-image | built from config/gate/Dockerfile on python:3.13-slim-trixie@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 | agent-fleet-gate:5785368db6b2 | sha256:2c1a8585ef70a080ae8e247cd2794c6501cafbe214cbd5876e9db89eb5a40261 | mixed, see the packages inside |
+| caveman-skill | git | https://github.com/JuliusBrussee/caveman | v4.1.0 (1e91f1306d602d4ca23618701b1185575ae1869b) | per file in skills/caveman/UPSTREAM.md (1 skill) | Apache-2.0 |
+| ecc-skills | git | https://github.com/affaan-m/ECC | v2.2.3 (c05b2d6614f62f6db0047669aa4eefb223d478f9) | per file in skills/*/UPSTREAM.md (4 skills) | MIT |
 | hermes-agent | git | https://github.com/NousResearch/hermes-agent.git | v0.23.1 (3b421578588243f920886e6fe79a6faa87ea026e) | abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209 | MIT (installer script sha256 shown) |
 | hermes-agent-self-evolution | git | https://github.com/NousResearch/hermes-agent-self-evolution | 0a929e3aa20e15cf04dc7c28492a7d41a5139125 | fb50c3dbf29d719e29a24c271ae9fa7329fc6798910c261be5548f75151a812d (source archive) | MIT |
 | humanizer-skill | git | https://github.com/blader/humanizer | b48c832f0f809c1b5658edbb838c2521b72f2413 | per file in skills/*/UPSTREAM.md (1 skill) | MIT |
-| marketingskills-skills | git | https://github.com/coreyhaines31/marketingskills | 1f837447b20bb6f0e72d87b80ece1c221c362c7d | per file in skills/*/UPSTREAM.md (15 skills) | MIT |
+| marketingskills-skills | git | https://github.com/coreyhaines31/marketingskills | 1f837447b20bb6f0e72d87b80ece1c221c362c7d | per file in skills/*/UPSTREAM.md (17 skills) | MIT |
 | n8n-skills | git | https://github.com/czlonkowski/n8n-skills (skills only, markdown only, not the hooks, not mcp.json) | v1.37.1 e037563e101749e630e6688d121d04529fe6ee7b | n/a, pinned by commit | MIT |
 | semgrep-rules | git | https://github.com/semgrep/semgrep-rules | a5ad1714f00c9f7fde980cab0ea1d6dc6d414fd2 | n/a (git commit) | Semgrep Rules License v1.0 (not redistributed in this repository) |
 | superpowers-skills | git | https://github.com/obra/superpowers | 22f0b463e7a5e579904dd6211a520321035526f7 | per file in skills/*/UPSTREAM.md (7 skills) | MIT |

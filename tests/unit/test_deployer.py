@@ -214,3 +214,20 @@ def test_a_dry_run_plan_says_whether_the_release_is_approved_and_is_never_blocke
     dep, cf = make(tmp_path, cf=FakeCF(), mode="dry-run", approved=lambda kind, ref: approved)
     out = dep.deploy({"project": "demo", "commit": C1})
     assert out["status"] == "dry_run" and out["plan"]["release_approval"] == label and cf.calls == []
+
+
+def test_a_migration_that_ran_is_recorded_even_when_the_upload_fails(tmp_path):
+    """The old code saved the names only after the upload. A failed upload ran every migration again. See F-04."""
+    files = {"projects/demo/app/worker.js": WORKER, "projects/demo/app/deploy.json": b'{"d1": true}',
+             "projects/demo/app/migrations/001_a.sql": b"create table a(x);"}
+    broken = FakeCF(fail="the upload broke")
+    dep, _ = make(tmp_path, repo=FakeRepo(files), cf=broken)
+    out = dep.deploy({"project": "demo", "commit": C1})
+    assert out["status"] == "blocked" and out["reason"] == "cloudflare_error"
+    assert [c for c in broken.calls if c.startswith("d1_query")] == ["d1_query:create table a(x);"]
+    good = FakeCF()
+    dep2, _ = make(tmp_path, repo=FakeRepo(files), cf=good)
+    assert dep2.deploy({"project": "demo", "commit": C1})["status"] == "deployed"
+    assert not [c for c in good.calls if c.startswith("d1_query")]
+    saved = json.loads((tmp_path / "deployments.json").read_text())["demo"]
+    assert saved["migrations"] == ["001_a.sql"] and saved["commit"] == C1 and saved["url"].startswith("https://fleet-demo.")

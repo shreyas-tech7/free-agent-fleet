@@ -3,7 +3,7 @@ description: "Finds real customer pains through official APIs and public pages. 
 model: fleet-worker
 toolsets: [web, memory, skills, file, terminal]
 disabled_toolsets: [browser, code_execution, delegation, cronjob, computer_use, image_gen, video_gen, tts, vision, clarify, desktop_ui, catalog, connections, todo, session_search]
-skills: [humanizer, customer-research, house-style]
+skills: [humanizer, customer-research, house-style, market-research, market-osint, caveman]
 mcp_servers:
   fleet_tools:
     tools: [source_search, web_read, guard_scan]

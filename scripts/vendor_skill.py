@@ -3,7 +3,7 @@
 
 Usage:
   vendor_skill.py --src DIR --repo-url URL --commit SHA --license MIT --license-file FILE \
-                  --skill-dir RELATIVE_DIR --name NAME [--out skills]
+                  --skill-dir RELATIVE_DIR --name NAME [--out skills] [--notice-file FILE]
 
 Rules (R6, R7, G5):
 - The source is data. This tool never runs anything from it.
@@ -97,6 +97,7 @@ def main(argv=None):
     ap.add_argument("--name", required=True)
     ap.add_argument("--out", default="skills")
     ap.add_argument("--replace", action="store_true", help="replace a copy that already exists (a copy is reproducible from the pinned source)")
+    ap.add_argument("--notice-file", help="the NOTICE file of the source. The Apache-2.0 license says that it must travel with a copy")
     args = ap.parse_args(argv)
     src = pathlib.Path(args.src).resolve() / args.skill_dir
     out = pathlib.Path(args.out) / args.name
@@ -155,6 +156,13 @@ def main(argv=None):
             else:
                 omitted.append("%s (over 15 KB)" % rel)
     shutil.copyfile(args.license_file, out / "LICENSE")
+    notice = None
+    if args.notice_file:
+        notice = pathlib.Path(args.notice_file).read_bytes()
+        if len(notice) > LIMIT:
+            print("the NOTICE file is over 15 KB", file=sys.stderr)
+            return 2
+        (out / "NOTICE").write_bytes(notice)
     lines = ["# Upstream", "", "This skill is a copy of a third-party skill. Do not edit it here. Replace it through the security agent's install pipeline.", "",
              "- Source: %s" % args.repo_url, "- Commit: %s" % args.commit, "- Folder in the source: %s" % args.skill_dir,
              "- License: %s (see LICENSE)" % args.license, "- Updates: off. A new version needs a new pinned commit.", "",
@@ -162,6 +170,8 @@ def main(argv=None):
     lines += ["- Only text files were copied. Scripts and assets were left out."]
     lines += ["- Split to stay under 15 KB: %s" % "; ".join(split) if split else "- No file needed a split."]
     lines += ["- Left out: %s" % "; ".join(omitted) if omitted else "- Nothing else was left out."]
+    if notice is not None:
+        lines += ["- The NOTICE file of the source is kept as `NOTICE` (SHA-256 %s)." % sha(notice)]
     lines += ["", "## Original files", "", "| File | Bytes | SHA-256 of the original |", "|---|---|---|"]
     lines += ["| %s | %d | %s |" % (rel, n, h) for rel, h, n in rows]
     (out / "UPSTREAM.md").write_text("\n".join(lines) + "\n")

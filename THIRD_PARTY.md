@@ -15,6 +15,7 @@ Some licenses need your attention:
 | agent-fleet-gate | docker-image | built from config/gate/Dockerfile on python:3.13-slim-trixie@sha256:e48f59cdba69a3cbd9ed2c | agent-fleet-gate:5785368db6b2 | mixed, see the packages inside |
 | build-essential | apt | Debian or Ubuntu archive | 12.12 | see copyright file |
 | ca-certificates | apt | Debian or Ubuntu archive | 20250419+deb13u1 | GPL-2+, MPL-2.0 |
+| caveman-skill | git | https://github.com/JuliusBrussee/caveman | v4.1.0 (1e91f1306d602d4ca23618701b118557 | Apache-2.0 |
 | chromium-for-playwright | binary | https://cdn.playwright.dev | chromium-1247 | BSD-3-Clause (Chromium), see the browser folder |
 | cisco-ai-mcp-scanner | pypi | https://github.com/cisco-ai-defense/mcp-scanner | 4.8.7 | Apache-2.0 |
 | cisco-ai-skill-scanner | pypi | https://github.com/cisco-ai-defense/skill-scanner | 2.3.2 | Apache-2.0 |
@@ -27,6 +28,7 @@ Some licenses need your attention:
 | docker-ce | apt | https://download.docker.com/linux | 5:29.9.3-1~debian.13~trixie | see copyright file |
 | docker-ce-cli | apt | https://download.docker.com/linux | 5:29.9.3-1~debian.13~trixie | see copyright file |
 | docker-ce-rootless-extras | apt | https://download.docker.com/linux | 5:29.9.3-1~debian.13~trixie | see copyright file |
+| ecc-skills | git | https://github.com/affaan-m/ECC | v2.2.3 (c05b2d6614f62f6db0047669aa4eefb2 | MIT |
 | evolve-python-packages | pypi | https://pypi.org | see vendor/evolve-requirements.txt | various, see each package |
 | file | apt | Debian or Ubuntu archive | 1:5.46-5 | BSD-2-Clause-alike, public-domain, BSD-2-Clause-netbsd |
 | gate-base | docker | docker.io/python:3.13-slim-trixie | python:3.13-slim-trixie@sha256:e48f59cdb | PSF-2.0 and others (Python official image) |
